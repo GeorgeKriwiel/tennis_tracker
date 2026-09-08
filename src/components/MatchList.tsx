@@ -1,12 +1,6 @@
-import type { Match } from '../types/match'
+import type { ApiMatch } from '../lib/api'
 
-export function MatchList({
-  matches,
-  onDelete,
-}: {
-  matches: Match[]
-  onDelete: (id: string) => void
-}) {
+export function MatchList({ matches }: { matches: ApiMatch[] }) {
   if (matches.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-neutral-500">
@@ -15,46 +9,51 @@ export function MatchList({
     )
   }
 
-  const sorted = [...matches].sort((a, b) => b.date.localeCompare(a.date))
-
   return (
     <ul className="flex flex-col gap-2">
-      {sorted.map((m) => (
-        <li
-          key={m.id}
-          className="flex items-center justify-between rounded-lg bg-white p-3 shadow-sm dark:bg-neutral-800"
-        >
-          <div>
-            <div className="flex items-center gap-2">
+      {matches.map((m) => {
+        const aWon = m.winner_id === m.player_a_id
+        return (
+          <li
+            key={m.id}
+            className="rounded-lg bg-white p-3 shadow-sm dark:bg-neutral-800"
+          >
+            <div className="flex items-center justify-between text-sm">
               <span
                 className={
-                  m.result === 'win'
-                    ? 'rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-300'
-                    : 'rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900 dark:text-red-300'
+                  aWon
+                    ? 'font-semibold text-neutral-900 dark:text-neutral-100'
+                    : 'text-neutral-500'
                 }
               >
-                {m.result === 'win' ? 'W' : 'L'}
+                {m.player_a_name}
               </span>
-              <span className="font-medium text-neutral-900 dark:text-neutral-100">
-                vs {m.opponent}
+              <span className="text-xs text-neutral-400">vs</span>
+              <span
+                className={
+                  !aWon
+                    ? 'font-semibold text-neutral-900 dark:text-neutral-100'
+                    : 'text-neutral-500'
+                }
+              >
+                {m.player_b_name}
               </span>
             </div>
-            <div className="text-xs text-neutral-500">
-              {m.date} ·{' '}
-              {m.sets.map((s) => `${s.mine}-${s.opponent}`).join(', ')}
+            <div className="mt-1 text-center text-xs text-neutral-500">
+              {m.sets.map((s) => `${s.playerA}-${s.playerB}`).join(', ')}
+            </div>
+            <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
+              <span>{m.played_on.slice(0, 10)}</span>
+              <span>
+                {m.player_a_elo_after} · {m.player_b_elo_after}
+              </span>
             </div>
             {m.notes && (
               <div className="mt-1 text-xs text-neutral-400">{m.notes}</div>
             )}
-          </div>
-          <button
-            onClick={() => onDelete(m.id)}
-            className="text-xs text-neutral-400 active:text-red-500"
-          >
-            Delete
-          </button>
-        </li>
-      ))}
+          </li>
+        )
+      })}
     </ul>
   )
 }
