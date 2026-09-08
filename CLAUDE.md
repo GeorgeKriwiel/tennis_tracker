@@ -2,7 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This repo has two parts: a frontend (root) and a backend API (`server/`), deployed independently (e.g. Vercel for the frontend, Railway for the API + Postgres) but wired together at runtime — the frontend has no local persistence of its own, it's a thin client over the API's shared, ELO-rated leaderboard. Multiple people pointed at the same API/database see and add to the same players and matches.
+This repo has two parts: a frontend (root) and a backend API (`server/`), deployed as separate services in the same Railway project but wired together at runtime — the frontend has no local persistence of its own, it's a thin client over the API's shared, ELO-rated leaderboard. Multiple people pointed at the same API/database see and add to the same players and matches.
+
+## Deployment (Railway)
+
+Everything lives in one Railway project (`tennis_tracker`, linked locally via `railway link`), as three services:
+
+- **`Postgres`** — managed Postgres, public networking disabled by default. To connect from a laptop, use `railway connect Postgres --tunnel-only` (opens a local encrypted tunnel, prints a one-off `localhost` connection string+password) rather than enabling the database's public URL.
+- **`tennis_tracker`** — the frontend. Auto-connected to the GitHub repo at the **root directory** (no override needed, since the frontend lives at repo root); Railway auto-detected it as a static Vite site and serves the `dist/` build via Caddy. **Auto-deploys on push to `main`.** Env var `VITE_API_URL` points at the `api` service's public domain — since Vite bakes `VITE_*` vars in at *build* time, changing this variable requires a rebuild, not just a restart: `railway redeploy --service tennis_tracker --from-source --yes` (plain `redeploy` without `--from-source` replays the old build artifact and won't pick up the new value).
+- **`api`** — the backend (`server/`). Created as an empty service (`railway add --service api`) rather than connected to the GitHub repo, because this repo is a monorepo and connecting the whole repo would build the frontend's root `package.json` instead of `server/`'s. Deployed by running `railway up server --path-as-root --service api` from the repo root (plain `railway up` from inside `server/` still uploads the whole repo — `--path-as-root` is what scopes the build to that subdirectory). **Does not auto-deploy on push** — after backend changes, redeploy manually with that same command. Its `DATABASE_URL` is set to `${{Postgres.DATABASE_URL}}` (a Railway variable reference), which resolves to the *internal* `postgres.railway.internal` address — the deployed API talks to Postgres over Railway's private network, never the public internet.
+
+Both `tennis_tracker` and `api` have public domains generated via `railway domain --service <name>` (`*.up.railway.app`). A custom domain (e.g. from Namecheap) would get pointed at the frontend's Railway domain via CNAME — not yet set up.
 
 ## Commands
 
