@@ -1,7 +1,6 @@
 import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
-import type { RowDataPacket } from 'mysql2'
 import { pool } from './db'
 import { computeEloUpdate } from './elo'
 
@@ -9,17 +8,17 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-interface Player extends RowDataPacket {
+interface Player {
   id: number
   name: string
   elo: number
 }
 
 app.get('/api/players', async (_req, res) => {
-  const [players] = await pool.query<Player[]>(
+  const { rows } = await pool.query<Player>(
     'SELECT id, name, elo FROM players ORDER BY elo DESC',
   )
-  res.json(players)
+  res.json(rows)
 })
 
 app.post('/api/players', async (req, res) => {
@@ -29,16 +28,23 @@ app.post('/api/players', async (req, res) => {
     return
   }
 
-  const [result] = await pool.query(
-    'INSERT INTO players (name) VALUES (?)',
-    [name.trim()],
-  )
-  const insertId = (result as { insertId: number }).insertId
-  res.status(201).json({ id: insertId, name: name.trim(), elo: 1200 })
+  try {
+    const { rows } = await pool.query<{ id: number }>(
+      'INSERT INTO players (name) VALUES ($1) RETURNING id',
+      [name.trim()],
+    )
+    res.status(201).json({ id: rows[0].id, name: name.trim(), elo: 1200 })
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && err.code === '23505') {
+      res.status(409).json({ error: 'a player with that name already exists' })
+      return
+    }
+    throw err
+  }
 })
 
 app.get('/api/matches', async (_req, res) => {
-  const [matches] = await pool.query(
+  const { rows } = await pool.query(
     `SELECT m.id, m.played_on, m.sets, m.notes, m.winner_id,
             m.player_a_elo_after, m.player_b_elo_after,
             pa.id AS player_a_id, pa.name AS player_a_name,
@@ -48,7 +54,7 @@ app.get('/api/matches', async (_req, res) => {
      JOIN players pb ON pb.id = m.player_b_id
      ORDER BY m.played_on DESC, m.id DESC`,
   )
-  res.json(matches)
+  res.json(rows)
 })
 
 interface SetScore {
@@ -74,8 +80,8 @@ app.post('/api/matches', async (req, res) => {
     return
   }
 
-  const [players] = await pool.query<Player[]>(
-    'SELECT id, name, elo FROM players WHERE id IN (?, ?)',
+  const { rows: players } = await pool.query<Player>(
+    'SELECT id, name, elo FROM players WHERE id IN ($1, $2)',
     [playerAId, playerBId],
   )
   const playerA = players.find((p) => p.id === playerAId)
@@ -92,24 +98,24 @@ app.post('/api/matches', async (req, res) => {
 
   const { newRatingA, newRatingB } = computeEloUpdate(playerA.elo, playerB.elo, aWon)
 
-  const connection = await pool.getConnection()
+  const client = await pool.connect()
   try {
-    await connection.beginTransaction()
+    await client.query('BEGIN')
 
-    const [result] = await connection.query(
+    const { rows: inserted } = await client.query<{ id: number }>(
       `INSERT INTO matches
         (played_on, player_a_id, player_b_id, sets, winner_id, player_a_elo_after, player_b_elo_after, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id`,
       [playedOn, playerA.id, playerB.id, JSON.stringify(sets), winnerId, newRatingA, newRatingB, notes ?? null],
     )
-    await connection.query('UPDATE players SET elo = ? WHERE id = ?', [newRatingA, playerA.id])
-    await connection.query('UPDATE players SET elo = ? WHERE id = ?', [newRatingB, playerB.id])
+    await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingA, playerA.id])
+    await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingB, playerB.id])
 
-    await connection.commit()
+    await client.query('COMMIT')
 
-    const insertId = (result as { insertId: number }).insertId
     res.status(201).json({
-      id: insertId,
+      id: inserted[0].id,
       playedOn,
       playerA: { id: playerA.id, name: playerA.name, eloAfter: newRatingA },
       playerB: { id: playerB.id, name: playerB.name, eloAfter: newRatingB },
@@ -118,11 +124,16 @@ app.post('/api/matches', async (req, res) => {
       notes,
     })
   } catch (err) {
-    await connection.rollback()
+    await client.query('ROLLBACK')
     throw err
   } finally {
-    connection.release()
+    client.release()
   }
+})
+
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(err)
+  res.status(500).json({ error: 'internal server error' })
 })
 
 const port = process.env.PORT ?? 3001
