@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS matches (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- deleted_at is unused: it belonged to a short-lived soft-delete design (removing a player now deletes their matches). Safe to drop later.
 ALTER TABLE players ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
 
 ALTER TABLE players DROP CONSTRAINT IF EXISTS players_name_key;

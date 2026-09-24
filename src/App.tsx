@@ -130,6 +130,7 @@ function App() {
       <Sheet open={sheet === 'player'} title="Members" onClose={() => setSheet(null)}>
         <MembersPanel
           players={players}
+          matches={matches}
           onAdd={handleAddPlayer}
           onDelete={handleDeletePlayer}
         />

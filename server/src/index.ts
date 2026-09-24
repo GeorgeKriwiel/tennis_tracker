@@ -3,6 +3,7 @@ import cors from 'cors'
 import express from 'express'
 import { pool } from './db'
 import { computeEloUpdate } from './elo'
+import { replayRatings } from './ratings'
 
 const app = express()
 app.use(cors())
@@ -16,7 +17,7 @@ interface Player {
 
 app.get('/api/players', async (_req, res) => {
   const { rows } = await pool.query<Player>(
-    'SELECT id, name, elo FROM players WHERE deleted_at IS NULL ORDER BY elo DESC',
+    'SELECT id, name, elo FROM players ORDER BY elo DESC',
   )
   res.json(rows)
 })
@@ -50,27 +51,31 @@ app.delete('/api/players/:id', async (req, res) => {
     return
   }
 
-  const { rows: existing } = await pool.query(
-    'SELECT id FROM players WHERE id = $1 AND deleted_at IS NULL',
-    [id],
-  )
-  if (existing.length === 0) {
-    res.status(404).json({ error: 'player not found' })
-    return
-  }
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
 
-  // Players with match history can't be hard-deleted: other players' ELO was
-  // computed against them. Hide them instead so history and ratings stay valid.
-  const { rows: played } = await pool.query(
-    'SELECT 1 FROM matches WHERE player_a_id = $1 OR player_b_id = $1 LIMIT 1',
-    [id],
-  )
-  if (played.length === 0) {
-    await pool.query('DELETE FROM players WHERE id = $1', [id])
-  } else {
-    await pool.query('UPDATE players SET deleted_at = NOW() WHERE id = $1', [id])
+    const { rowCount } = await client.query('SELECT 1 FROM players WHERE id = $1', [id])
+    if (!rowCount) {
+      await client.query('ROLLBACK')
+      res.status(404).json({ error: 'player not found' })
+      return
+    }
+
+    // Removing a player removes their matches too; since ELO is a running
+    // total, everyone's ratings are then rebuilt from the remaining matches.
+    await client.query('DELETE FROM matches WHERE player_a_id = $1 OR player_b_id = $1', [id])
+    await client.query('DELETE FROM players WHERE id = $1', [id])
+    await replayRatings(client)
+
+    await client.query('COMMIT')
+    res.status(204).end()
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
   }
-  res.status(204).end()
 })
 
 app.get('/api/matches', async (_req, res) => {
@@ -111,7 +116,7 @@ app.post('/api/matches', async (req, res) => {
   }
 
   const { rows: players } = await pool.query<Player>(
-    'SELECT id, name, elo FROM players WHERE id IN ($1, $2) AND deleted_at IS NULL',
+    'SELECT id, name, elo FROM players WHERE id IN ($1, $2)',
     [playerAId, playerBId],
   )
   const playerA = players.find((p) => p.id === playerAId)
