@@ -6,7 +6,7 @@ export function Standings({ standings }: { standings: Standing[] }) {
   if (standings.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-neutral-500">
-        No players yet — tap “Add members” to get started.
+        No players yet — tap “Manage members” to get started.
       </p>
     )
   }

@@ -34,6 +34,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Request failed with status ${res.status}`)
   }
+  if (res.status === 204) return undefined as T
   return res.json()
 }
 
@@ -45,6 +46,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
+
+  deletePlayer: (id: number) =>
+    request<void>(`/api/players/${id}`, { method: 'DELETE' }),
 
   getMatches: () => request<ApiMatch[]>('/api/matches'),
 

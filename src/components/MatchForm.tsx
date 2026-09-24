@@ -64,7 +64,7 @@ export function MatchForm({
   if (players.length < 2) {
     return (
       <p className="py-4 text-center text-sm text-neutral-500">
-        Add at least 2 players first (use “Add members”).
+        Add at least 2 players first (use “Manage members”).
       </p>
     )
   }

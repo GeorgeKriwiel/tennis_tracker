@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AddPlayerForm } from './components/AddPlayerForm'
 import { MatchForm } from './components/MatchForm'
 import { MatchList } from './components/MatchList'
+import { MembersPanel } from './components/MembersPanel'
 import { Sheet } from './components/Sheet'
 import { Standings } from './components/Standings'
 import { api, type ApiMatch, type ApiPlayer, type SetScore } from './lib/api'
@@ -45,7 +45,11 @@ function App() {
   async function handleAddPlayer(name: string) {
     await api.createPlayer(name)
     await refresh()
-    setSheet(null)
+  }
+
+  async function handleDeletePlayer(id: number) {
+    await api.deletePlayer(id)
+    await refresh()
   }
 
   async function handleAddMatch(payload: {
@@ -103,7 +107,7 @@ function App() {
               onClick={() => setSheet('player')}
               className="mt-4 w-full rounded-full border border-neutral-200 py-3 text-sm font-medium text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
             >
-              Add members
+              Manage members
             </button>
           </>
         ) : (
@@ -123,8 +127,12 @@ function App() {
       <Sheet open={sheet === 'match'} title="Log a match" onClose={() => setSheet(null)}>
         <MatchForm players={players} onAdd={handleAddMatch} />
       </Sheet>
-      <Sheet open={sheet === 'player'} title="Add a player" onClose={() => setSheet(null)}>
-        <AddPlayerForm onAdd={handleAddPlayer} />
+      <Sheet open={sheet === 'player'} title="Members" onClose={() => setSheet(null)}>
+        <MembersPanel
+          players={players}
+          onAdd={handleAddPlayer}
+          onDelete={handleDeletePlayer}
+        />
       </Sheet>
     </div>
   )

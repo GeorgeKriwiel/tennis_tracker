@@ -16,7 +16,7 @@ interface Player {
 
 app.get('/api/players', async (_req, res) => {
   const { rows } = await pool.query<Player>(
-    'SELECT id, name, elo FROM players ORDER BY elo DESC',
+    'SELECT id, name, elo FROM players WHERE deleted_at IS NULL ORDER BY elo DESC',
   )
   res.json(rows)
 })
@@ -41,6 +41,36 @@ app.post('/api/players', async (req, res) => {
     }
     throw err
   }
+})
+
+app.delete('/api/players/:id', async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'invalid player id' })
+    return
+  }
+
+  const { rows: existing } = await pool.query(
+    'SELECT id FROM players WHERE id = $1 AND deleted_at IS NULL',
+    [id],
+  )
+  if (existing.length === 0) {
+    res.status(404).json({ error: 'player not found' })
+    return
+  }
+
+  // Players with match history can't be hard-deleted: other players' ELO was
+  // computed against them. Hide them instead so history and ratings stay valid.
+  const { rows: played } = await pool.query(
+    'SELECT 1 FROM matches WHERE player_a_id = $1 OR player_b_id = $1 LIMIT 1',
+    [id],
+  )
+  if (played.length === 0) {
+    await pool.query('DELETE FROM players WHERE id = $1', [id])
+  } else {
+    await pool.query('UPDATE players SET deleted_at = NOW() WHERE id = $1', [id])
+  }
+  res.status(204).end()
 })
 
 app.get('/api/matches', async (_req, res) => {
@@ -81,7 +111,7 @@ app.post('/api/matches', async (req, res) => {
   }
 
   const { rows: players } = await pool.query<Player>(
-    'SELECT id, name, elo FROM players WHERE id IN ($1, $2)',
+    'SELECT id, name, elo FROM players WHERE id IN ($1, $2) AND deleted_at IS NULL',
     [playerAId, playerBId],
   )
   const playerA = players.find((p) => p.id === playerAId)
