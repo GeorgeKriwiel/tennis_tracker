@@ -1,5 +1,6 @@
-// Source: PDX_Courts.xlsx (one row per park). An exact duplicate row for Fernhill Park in the
-// spreadsheet was listed once.
+// Source: PDX_Courts (spreadsheet / "Tennis Courts - PDX Courts.csv"), one row per park. An exact
+// duplicate Fernhill Park row in the source is listed once. The CSV also has Quality, drive time and
+// Google Maps name columns, which the app doesn't use yet.
 export interface Park {
   name: string
   courts: number
@@ -37,4 +38,5 @@ export const PARKS: Park[] = [
   { name: "Happy Valley Park", courts: 2 },
   { name: "Washington Park", courts: 6 },
   { name: "Woodstock Park", courts: 2 },
+  { name: "Gabriel Park", courts: 6 },
 ]
