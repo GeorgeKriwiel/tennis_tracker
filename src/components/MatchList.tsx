@@ -44,7 +44,10 @@ export function MatchList({ matches }: { matches: ApiMatch[] }) {
               {m.score_a}-{m.score_b}
             </div>
             <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
-              <span>{m.played_on.slice(0, 10)}</span>
+              <span>
+                {m.played_on.slice(0, 10)}
+                {m.park && ` · ${m.park}`}
+              </span>
               <span>
                 {m.player_a_elo_after} · {m.player_b_elo_after}
               </span>

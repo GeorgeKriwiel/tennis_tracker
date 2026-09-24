@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { PARKS } from '../data/courts'
 import type { ApiPlayer } from '../lib/api'
 
 const field =
   'w-full rounded border border-neutral-300 px-2 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900'
+
+const PARK_NAMES = PARKS.map((p) => p.name).sort((a, b) => a.localeCompare(b))
 
 export function MatchForm({
   players,
@@ -15,27 +18,38 @@ export function MatchForm({
     playerBId: number
     scoreA: number
     scoreB: number
+    park?: string
     notes?: string
   }) => Promise<void>
 }) {
   const [playedOn, setPlayedOn] = useState(() =>
     new Date().toISOString().slice(0, 10),
   )
-  const [selectedAId, setSelectedAId] = useState<number | ''>('')
-  const [selectedBId, setSelectedBId] = useState<number | ''>('')
-  const playerAId = selectedAId !== '' ? selectedAId : (players[0]?.id ?? '')
-  const playerBId = selectedBId !== '' ? selectedBId : (players[1]?.id ?? '')
+  // Player ids in the order they were tapped: first is player A, second is B.
+  const [picked, setPicked] = useState<number[]>([])
   const [scoreA, setScoreA] = useState('')
   const [scoreB, setScoreB] = useState('')
+  const [park, setPark] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const playerA = players.find((p) => p.id === picked[0])
+  const playerB = players.find((p) => p.id === picked[1])
+
+  function togglePlayer(id: number) {
+    setError(null)
+    setPicked((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id)
+      // A third tap replaces the earliest pick.
+      return prev.length >= 2 ? [prev[1], id] : [...prev, id]
+    })
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!playerAId || !playerBId) return
-    if (playerAId === playerBId) {
-      setError('Players must be different')
+    if (!playerA || !playerB) {
+      setError('Tap two players')
       return
     }
 
@@ -55,12 +69,14 @@ export function MatchForm({
     try {
       await onAdd({
         playedOn,
-        playerAId: Number(playerAId),
-        playerBId: Number(playerBId),
+        playerAId: playerA.id,
+        playerBId: playerB.id,
         scoreA: a,
         scoreB: b,
+        park: park || undefined,
         notes: notes.trim() || undefined,
       })
+      setPicked([])
       setScoreA('')
       setScoreB('')
       setNotes('')
@@ -79,58 +95,76 @@ export function MatchForm({
     )
   }
 
-  const playerOptions = players.map((p) => (
-    <option key={p.id} value={p.id}>
-      {p.name}
-    </option>
-  ))
-
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
-      <input
-        type="date"
-        value={playedOn}
-        onChange={(e) => setPlayedOn(e.target.value)}
-        className={field}
-      />
+    <form onSubmit={submit} className="flex flex-col gap-4">
+      <div>
+        <p className="mb-2 text-xs text-neutral-500">Who played? Tap two players</p>
+        <div className="flex flex-wrap gap-2">
+          {players.map((p) => {
+            const selected = picked.includes(p.id)
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => togglePlayer(p.id)}
+                className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                  selected
+                    ? 'border-emerald-600 bg-emerald-600 text-white'
+                    : 'border-neutral-300 text-neutral-700 dark:border-neutral-600 dark:text-neutral-200'
+                }`}
+              >
+                {p.name}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {playerA && playerB && (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1 text-xs text-neutral-500">
+            <span className="truncate">{playerA.name}</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              placeholder="Games"
+              value={scoreA}
+              onChange={(e) => setScoreA(e.target.value)}
+              className={`${field} text-center text-lg`}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-neutral-500">
+            <span className="truncate">{playerB.name}</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              placeholder="Games"
+              value={scoreB}
+              onChange={(e) => setScoreB(e.target.value)}
+              className={`${field} text-center text-lg`}
+            />
+          </label>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-2">
-          <select
-            value={playerAId}
-            onChange={(e) => setSelectedAId(Number(e.target.value))}
-            className={field}
-          >
-            {playerOptions}
-          </select>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            placeholder="Games"
-            value={scoreA}
-            onChange={(e) => setScoreA(e.target.value)}
-            className={`${field} text-center text-lg`}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <select
-            value={playerBId}
-            onChange={(e) => setSelectedBId(Number(e.target.value))}
-            className={field}
-          >
-            {playerOptions}
-          </select>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            placeholder="Games"
-            value={scoreB}
-            onChange={(e) => setScoreB(e.target.value)}
-            className={`${field} text-center text-lg`}
-          />
-        </div>
+        <input
+          type="date"
+          value={playedOn}
+          onChange={(e) => setPlayedOn(e.target.value)}
+          className={field}
+        />
+        <select value={park} onChange={(e) => setPark(e.target.value)} className={field}>
+          <option value="">Park (optional)</option>
+          {PARK_NAMES.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <textarea

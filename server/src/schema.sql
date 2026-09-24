@@ -18,11 +18,13 @@ CREATE TABLE IF NOT EXISTS matches (
   winner_id INT REFERENCES players(id),
   player_a_elo_after INT NOT NULL,
   player_b_elo_after INT NOT NULL,
+  park VARCHAR(100),
   notes VARCHAR(500),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Upgrades from earlier versions of this table.
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS park VARCHAR(100);
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS score_a INT;
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS score_b INT;
 
@@ -50,3 +52,8 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
 ALTER TABLE players DROP CONSTRAINT IF EXISTS players_name_key;
 
 CREATE UNIQUE INDEX IF NOT EXISTS players_active_name_key ON players (name) WHERE deleted_at IS NULL;
+
+-- One-off: matches imported from the results spreadsheet stored their park in notes.
+-- Move those into the park column (only exact park names from that import; idempotent).
+UPDATE matches SET park = notes, notes = NULL
+WHERE park IS NULL AND notes IN ('Willamette Park', 'Grant Park', 'Irving Park', 'Gabriel Park');

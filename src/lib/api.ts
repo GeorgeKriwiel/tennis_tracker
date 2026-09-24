@@ -11,6 +11,7 @@ export interface ApiMatch {
   played_on: string
   score_a: number
   score_b: number
+  park: string | null
   notes: string | null
   // null when the match was a draw
   winner_id: number | null
@@ -55,6 +56,7 @@ export const api = {
     playerBId: number
     scoreA: number
     scoreB: number
+    park?: string
     notes?: string
   }) =>
     request<unknown>('/api/matches', {

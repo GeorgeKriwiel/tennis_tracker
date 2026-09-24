@@ -63,6 +63,7 @@ function App() {
     playerBId: number
     scoreA: number
     scoreB: number
+    park?: string
     notes?: string
   }) {
     await api.createMatch(payload)

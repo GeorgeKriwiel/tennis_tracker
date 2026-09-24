@@ -80,7 +80,7 @@ app.delete('/api/players/:id', async (req, res) => {
 
 app.get('/api/matches', async (_req, res) => {
   const { rows } = await pool.query(
-    `SELECT m.id, m.played_on, m.score_a, m.score_b, m.notes, m.winner_id,
+    `SELECT m.id, m.played_on, m.score_a, m.score_b, m.park, m.notes, m.winner_id,
             m.player_a_elo_after, m.player_b_elo_after,
             pa.id AS player_a_id, pa.name AS player_a_name,
             pb.id AS player_b_id, pb.name AS player_b_name
@@ -99,6 +99,7 @@ app.post('/api/matches', async (req, res) => {
     playerBId,
     scoreA: gamesA,
     scoreB: gamesB,
+    park,
     notes,
   } = req.body as {
     playedOn?: string
@@ -106,6 +107,7 @@ app.post('/api/matches', async (req, res) => {
     playerBId?: number
     scoreA?: number
     scoreB?: number
+    park?: string
     notes?: string
   }
 
@@ -122,6 +124,10 @@ app.post('/api/matches', async (req, res) => {
   }
   if (playerAId === playerBId) {
     res.status(400).json({ error: 'playerAId and playerBId must differ' })
+    return
+  }
+  if (park !== undefined && (typeof park !== 'string' || park.length > 100)) {
+    res.status(400).json({ error: 'park must be a string of at most 100 characters' })
     return
   }
 
@@ -149,10 +155,10 @@ app.post('/api/matches', async (req, res) => {
 
     const { rows: inserted } = await client.query<{ id: number }>(
       `INSERT INTO matches
-        (played_on, player_a_id, player_b_id, score_a, score_b, winner_id, player_a_elo_after, player_b_elo_after, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        (played_on, player_a_id, player_b_id, score_a, score_b, winner_id, player_a_elo_after, player_b_elo_after, park, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id`,
-      [playedOn, playerA.id, playerB.id, gamesA, gamesB, winnerId, newRatingA, newRatingB, notes ?? null],
+      [playedOn, playerA.id, playerB.id, gamesA, gamesB, winnerId, newRatingA, newRatingB, park?.trim() || null, notes ?? null],
     )
     await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingA, playerA.id])
     await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingB, playerB.id])
@@ -167,6 +173,7 @@ app.post('/api/matches', async (req, res) => {
       scoreA: gamesA,
       scoreB: gamesB,
       winnerId,
+      park: park?.trim() || null,
       notes,
     })
   } catch (err) {
