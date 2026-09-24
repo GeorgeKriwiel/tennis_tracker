@@ -63,17 +63,14 @@ export function MatchForm({
 
   if (players.length < 2) {
     return (
-      <p className="rounded-lg bg-white p-4 text-center text-sm text-neutral-500 shadow-sm dark:bg-neutral-800">
-        Add at least 2 players above to log a match.
+      <p className="py-4 text-center text-sm text-neutral-500">
+        Add at least 2 players first (use “Add members”).
       </p>
     )
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="flex flex-col gap-3 rounded-lg bg-white p-4 shadow-sm dark:bg-neutral-800"
-    >
+    <form onSubmit={submit} className="flex flex-col gap-3">
       <input
         type="date"
         value={playedOn}
