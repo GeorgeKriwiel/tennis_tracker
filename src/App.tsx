@@ -4,7 +4,7 @@ import { MatchList } from './components/MatchList'
 import { MembersPanel } from './components/MembersPanel'
 import { Sheet } from './components/Sheet'
 import { Standings } from './components/Standings'
-import { api, type ApiMatch, type ApiPlayer, type SetScore } from './lib/api'
+import { api, type ApiMatch, type ApiPlayer } from './lib/api'
 import { computeStandings } from './lib/records'
 
 const LEAGUE_NAME = 'Tennis Tracker'
@@ -56,7 +56,8 @@ function App() {
     playedOn: string
     playerAId: number
     playerBId: number
-    sets: SetScore[]
+    scoreA: number
+    scoreB: number
     notes?: string
   }) {
     await api.createMatch(payload)

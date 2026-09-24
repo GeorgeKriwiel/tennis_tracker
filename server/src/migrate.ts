@@ -4,12 +4,9 @@ import { join } from 'node:path'
 import { pool } from './db'
 
 async function migrate() {
+  // Run the whole file as one multi-statement query (needed for the DO block).
   const sql = readFileSync(join(__dirname, 'schema.sql'), 'utf-8')
-  const statements = sql.split(';').map((s) => s.trim()).filter(Boolean)
-
-  for (const statement of statements) {
-    await pool.query(statement)
-  }
+  await pool.query(sql)
 
   console.log('Migration complete')
   await pool.end()

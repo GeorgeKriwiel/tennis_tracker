@@ -2,7 +2,7 @@ import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import { pool } from './db'
-import { computeEloUpdate } from './elo'
+import { computeEloUpdate, scoreMatch } from './elo'
 import { replayRatings } from './ratings'
 
 const app = express()
@@ -80,7 +80,7 @@ app.delete('/api/players/:id', async (req, res) => {
 
 app.get('/api/matches', async (_req, res) => {
   const { rows } = await pool.query(
-    `SELECT m.id, m.played_on, m.sets, m.notes, m.winner_id,
+    `SELECT m.id, m.played_on, m.score_a, m.score_b, m.notes, m.winner_id,
             m.player_a_elo_after, m.player_b_elo_after,
             pa.id AS player_a_id, pa.name AS player_a_name,
             pb.id AS player_b_id, pb.name AS player_b_name
@@ -92,22 +92,32 @@ app.get('/api/matches', async (_req, res) => {
   res.json(rows)
 })
 
-interface SetScore {
-  playerA: number
-  playerB: number
-}
-
 app.post('/api/matches', async (req, res) => {
-  const { playedOn, playerAId, playerBId, sets, notes } = req.body as {
+  const {
+    playedOn,
+    playerAId,
+    playerBId,
+    scoreA: gamesA,
+    scoreB: gamesB,
+    notes,
+  } = req.body as {
     playedOn?: string
     playerAId?: number
     playerBId?: number
-    sets?: SetScore[]
+    scoreA?: number
+    scoreB?: number
     notes?: string
   }
 
-  if (!playedOn || !playerAId || !playerBId || !sets?.length) {
-    res.status(400).json({ error: 'playedOn, playerAId, playerBId, sets are required' })
+  const validScore = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0
+  if (!playedOn || !playerAId || !playerBId || !validScore(gamesA) || !validScore(gamesB)) {
+    res.status(400).json({
+      error: 'playedOn, playerAId, playerBId, scoreA, scoreB (whole numbers >= 0) are required',
+    })
+    return
+  }
+  if (gamesA === 0 && gamesB === 0) {
+    res.status(400).json({ error: 'enter a score' })
     return
   }
   if (playerAId === playerBId) {
@@ -126,12 +136,12 @@ app.post('/api/matches', async (req, res) => {
     return
   }
 
-  const setsWonByA = sets.filter((s) => s.playerA > s.playerB).length
-  const setsWonByB = sets.length - setsWonByA
-  const aWon = setsWonByA > setsWonByB
-  const winnerId = aWon ? playerA.id : playerB.id
+  // Winner, draw and K-scaling all come from scoreMatch; a draw is stored as
+  // winner_id NULL.
+  const { scoreA: result, k } = scoreMatch(gamesA, gamesB)
+  const winnerId = result === 1 ? playerA.id : result === 0 ? playerB.id : null
 
-  const { newRatingA, newRatingB } = computeEloUpdate(playerA.elo, playerB.elo, aWon)
+  const { newRatingA, newRatingB } = computeEloUpdate(playerA.elo, playerB.elo, result, k)
 
   const client = await pool.connect()
   try {
@@ -139,10 +149,10 @@ app.post('/api/matches', async (req, res) => {
 
     const { rows: inserted } = await client.query<{ id: number }>(
       `INSERT INTO matches
-        (played_on, player_a_id, player_b_id, sets, winner_id, player_a_elo_after, player_b_elo_after, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        (played_on, player_a_id, player_b_id, score_a, score_b, winner_id, player_a_elo_after, player_b_elo_after, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id`,
-      [playedOn, playerA.id, playerB.id, JSON.stringify(sets), winnerId, newRatingA, newRatingB, notes ?? null],
+      [playedOn, playerA.id, playerB.id, gamesA, gamesB, winnerId, newRatingA, newRatingB, notes ?? null],
     )
     await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingA, playerA.id])
     await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingB, playerB.id])
@@ -154,7 +164,8 @@ app.post('/api/matches', async (req, res) => {
       playedOn,
       playerA: { id: playerA.id, name: playerA.name, eloAfter: newRatingA },
       playerB: { id: playerB.id, name: playerB.name, eloAfter: newRatingB },
-      sets,
+      scoreA: gamesA,
+      scoreB: gamesB,
       winnerId,
       notes,
     })

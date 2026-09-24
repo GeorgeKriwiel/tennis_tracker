@@ -13,7 +13,7 @@ export function Standings({ standings }: { standings: Standing[] }) {
 
   return (
     <ol className="flex flex-col">
-      {standings.map(({ player, wins, losses, winPct, streak, lastDelta }, i) => (
+      {standings.map(({ player, wins, draws, losses, winPct, streak, lastDelta }, i) => (
         <li
           key={player.id}
           className="flex items-center gap-3 border-b border-neutral-100 py-4 last:border-0 dark:border-neutral-800"
@@ -34,7 +34,7 @@ export function Standings({ standings }: { standings: Standing[] }) {
               )}
             </div>
             <div className="text-sm text-neutral-500">
-              {wins}W / {losses}L · {winPct}%
+              {wins}W / {draws}D / {losses}L · {winPct}%
             </div>
           </div>
 

@@ -12,6 +12,7 @@ export function MatchList({ matches }: { matches: ApiMatch[] }) {
   return (
     <ul className="flex flex-col gap-2">
       {matches.map((m) => {
+        const draw = m.winner_id === null
         const aWon = m.winner_id === m.player_a_id
         return (
           <li
@@ -21,17 +22,17 @@ export function MatchList({ matches }: { matches: ApiMatch[] }) {
             <div className="flex items-center justify-between text-sm">
               <span
                 className={
-                  aWon
+                  aWon || draw
                     ? 'font-semibold text-neutral-900 dark:text-neutral-100'
                     : 'text-neutral-500'
                 }
               >
                 {m.player_a_name}
               </span>
-              <span className="text-xs text-neutral-400">vs</span>
+              <span className="text-xs text-neutral-400">{draw ? 'draw' : 'vs'}</span>
               <span
                 className={
-                  !aWon
+                  !aWon || draw
                     ? 'font-semibold text-neutral-900 dark:text-neutral-100'
                     : 'text-neutral-500'
                 }
@@ -40,7 +41,7 @@ export function MatchList({ matches }: { matches: ApiMatch[] }) {
               </span>
             </div>
             <div className="mt-1 text-center text-xs text-neutral-500">
-              {m.sets.map((s) => `${s.playerA}-${s.playerB}`).join(', ')}
+              {m.score_a}-{m.score_b}
             </div>
             <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
               <span>{m.played_on.slice(0, 10)}</span>

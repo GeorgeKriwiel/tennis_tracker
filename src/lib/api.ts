@@ -6,17 +6,14 @@ export interface ApiPlayer {
   elo: number
 }
 
-export interface SetScore {
-  playerA: number
-  playerB: number
-}
-
 export interface ApiMatch {
   id: number
   played_on: string
-  sets: SetScore[]
+  score_a: number
+  score_b: number
   notes: string | null
-  winner_id: number
+  // null when the match was a draw
+  winner_id: number | null
   player_a_elo_after: number
   player_b_elo_after: number
   player_a_id: number
@@ -56,7 +53,8 @@ export const api = {
     playedOn: string
     playerAId: number
     playerBId: number
-    sets: SetScore[]
+    scoreA: number
+    scoreB: number
     notes?: string
   }) =>
     request<unknown>('/api/matches', {
