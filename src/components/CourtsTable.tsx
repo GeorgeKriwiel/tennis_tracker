@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { PARKS } from '../data/courts'
 import { geocodeAddress, getCurrentLocation, getDriveTimes, type DriveTimes, type Origin } from '../lib/geo'
 
-type SortKey = 'name' | 'courts' | 'drive'
+type SortKey = 'name' | 'courts' | 'quality' | 'drive'
 
 export function CourtsTable() {
   const [query, setQuery] = useState('')
@@ -23,6 +23,13 @@ export function CourtsTable() {
       const byName = a.name.localeCompare(b.name)
       if (sortKey === 'name') return dir * byName
       if (sortKey === 'courts') return dir * (a.courts - b.courts) || byName
+      if (sortKey === 'quality') {
+        // Unrated parks always sort last, whichever direction is chosen.
+        if (a.quality === null || b.quality === null) {
+          return a.quality === b.quality ? byName : a.quality === null ? 1 : -1
+        }
+        return dir * (a.quality - b.quality) || byName
+      }
       return dir * ((drive?.minutes[a.name] ?? 0) - (drive?.minutes[b.name] ?? 0)) || byName
     })
   }, [query, sortKey, ascending, drive])
@@ -34,8 +41,8 @@ export function CourtsTable() {
       setAscending((a) => !a)
     } else {
       setSortKey(key)
-      // Names and drive times default to ascending; courts to most-first.
-      setAscending(key !== 'courts')
+      // Names and drive times default to ascending; courts and quality to best-first.
+      setAscending(key === 'name' || key === 'drive')
     }
   }
 
@@ -150,6 +157,7 @@ export function CourtsTable() {
             {header('name', 'Park', 'text-left')}
             {drive && header('drive', 'Drive', 'text-right')}
             {header('courts', 'Courts', 'text-right')}
+            {header('quality', 'Quality', 'text-right')}
           </tr>
         </thead>
         <tbody>
@@ -168,6 +176,9 @@ export function CourtsTable() {
               <td className="py-3 text-right tabular-nums text-neutral-600 dark:text-neutral-300">
                 {p.courts}
               </td>
+              <td className="py-3 text-right tabular-nums text-neutral-600 dark:text-neutral-300">
+                {p.quality ?? <span className="text-neutral-300 dark:text-neutral-600">–</span>}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -181,6 +192,7 @@ export function CourtsTable() {
               <td className="py-3 text-right tabular-nums text-neutral-900 dark:text-neutral-100">
                 {totalCourts}
               </td>
+              <td />
             </tr>
           </tfoot>
         )}
