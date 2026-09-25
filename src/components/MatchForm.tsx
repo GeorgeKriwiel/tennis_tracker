@@ -13,12 +13,15 @@ const PARK_NAMES = PARKS.map((p) => p.name).sort((a, b) => a.localeCompare(b))
 export function MatchForm({
   players,
   onSubmit,
+  onDelete,
   initial,
   passcode,
   onPasscodeChange,
 }: {
   players: ApiPlayer[]
   onSubmit: (payload: MatchPayload) => Promise<void>
+  // Only when editing: permanently deletes the match (passcode required).
+  onDelete?: () => Promise<void>
   initial?: ApiMatch
   passcode?: string
   onPasscodeChange?: (value: string) => void
@@ -37,6 +40,7 @@ export function MatchForm({
   const [park, setPark] = useState(initial?.park ?? '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [submitting, setSubmitting] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const playerA = players.find((p) => p.id === picked[0])
@@ -97,6 +101,22 @@ export function MatchForm({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save match')
     } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function remove() {
+    if (!onDelete) return
+    if (!passcode?.trim()) {
+      setError('Enter the passcode to delete a match')
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    try {
+      await onDelete()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete match')
       setSubmitting(false)
     }
   }
@@ -202,6 +222,46 @@ export function MatchForm({
       >
         {editing ? 'Save changes' : 'Log match'}
       </button>
+
+      {editing &&
+        onDelete &&
+        (confirmingDelete ? (
+          <div className="flex flex-col gap-2 rounded-lg border border-red-200 p-3 dark:border-red-900">
+            <p className="text-xs text-red-500">
+              This permanently deletes the match and recalculates everyone’s ratings. It can’t be
+              undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={remove}
+                className="flex-1 rounded bg-red-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                Confirm delete
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => setConfirmingDelete(false)}
+                className="flex-1 rounded border border-neutral-300 px-3 py-2 text-sm text-neutral-600 dark:border-neutral-600 dark:text-neutral-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setError(null)
+              setConfirmingDelete(true)
+            }}
+            className="text-sm text-red-500"
+          >
+            Delete match
+          </button>
+        ))}
     </form>
   )
 }

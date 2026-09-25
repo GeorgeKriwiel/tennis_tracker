@@ -77,6 +77,12 @@ function App() {
     setTab('standings')
   }
 
+  async function handleDeleteMatch(id: number) {
+    await withPasscode(() => api.deleteMatch(id, passcode))
+    await refresh()
+    setEditing(null)
+  }
+
   async function handleUpdateMatch(id: number, payload: MatchPayload) {
     await withPasscode(() => api.updateMatch(id, payload, passcode))
     await refresh()
@@ -168,6 +174,7 @@ function App() {
             passcode={passcode}
             onPasscodeChange={setPasscode}
             onSubmit={(payload) => handleUpdateMatch(editing.id, payload)}
+            onDelete={() => handleDeleteMatch(editing.id)}
           />
         )}
       </Sheet>

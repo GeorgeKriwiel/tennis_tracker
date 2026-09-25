@@ -212,6 +212,37 @@ app.put('/api/matches/:id', requireAdminPasscode, async (req, res) => {
   }
 })
 
+// Deleting a match removes it from the rating history, so every rating is rebuilt from the
+// remaining matches. Passcode-protected like editing.
+app.delete('/api/matches/:id', requireAdminPasscode, async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'invalid match id' })
+    return
+  }
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const { rowCount } = await client.query('DELETE FROM matches WHERE id = $1', [id])
+    if (!rowCount) {
+      await client.query('ROLLBACK')
+      res.status(404).json({ error: 'match not found' })
+      return
+    }
+    await replayRatings(client)
+
+    await client.query('COMMIT')
+    res.status(204).end()
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+})
+
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err)
   res.status(500).json({ error: 'internal server error' })

@@ -39,7 +39,7 @@ async function request<T>(
   return res.json()
 }
 
-// Removing a player and editing a logged match need the shared passcode.
+// Removing a player and editing or deleting a logged match need the shared passcode.
 const withPasscode = (passcode: string) => ({ 'x-admin-passcode': passcode })
 
 export interface MatchPayload {
@@ -71,6 +71,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  deleteMatch: (id: number, passcode: string) =>
+    request<void>(`/api/matches/${id}`, { method: 'DELETE', headers: withPasscode(passcode) }),
 
   updateMatch: (id: number, payload: MatchPayload, passcode: string) =>
     request<void>(`/api/matches/${id}`, {
