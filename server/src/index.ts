@@ -3,9 +3,12 @@ import cors from 'cors'
 import express from 'express'
 import { pool } from './db'
 import { computeEloUpdate, scoreMatch } from './elo'
+import { requireAdminPasscode } from './adminAuth'
+import { parseMatchInput, winnerOf } from './matchInput'
 import { replayRatings } from './ratings'
 
 const app = express()
+app.set('trust proxy', 1)
 app.use(cors())
 app.use(express.json())
 
@@ -44,7 +47,7 @@ app.post('/api/players', async (req, res) => {
   }
 })
 
-app.delete('/api/players/:id', async (req, res) => {
+app.delete('/api/players/:id', requireAdminPasscode, async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'invalid player id' })
@@ -93,43 +96,12 @@ app.get('/api/matches', async (_req, res) => {
 })
 
 app.post('/api/matches', async (req, res) => {
-  const {
-    playedOn,
-    playerAId,
-    playerBId,
-    scoreA: gamesA,
-    scoreB: gamesB,
-    park,
-    notes,
-  } = req.body as {
-    playedOn?: string
-    playerAId?: number
-    playerBId?: number
-    scoreA?: number
-    scoreB?: number
-    park?: string
-    notes?: string
-  }
-
-  const validScore = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0
-  if (!playedOn || !playerAId || !playerBId || !validScore(gamesA) || !validScore(gamesB)) {
-    res.status(400).json({
-      error: 'playedOn, playerAId, playerBId, scoreA, scoreB (whole numbers >= 0) are required',
-    })
+  const parsed = parseMatchInput(req.body)
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error })
     return
   }
-  if (gamesA === 0 && gamesB === 0) {
-    res.status(400).json({ error: 'enter a score' })
-    return
-  }
-  if (playerAId === playerBId) {
-    res.status(400).json({ error: 'playerAId and playerBId must differ' })
-    return
-  }
-  if (park !== undefined && (typeof park !== 'string' || park.length > 100)) {
-    res.status(400).json({ error: 'park must be a string of at most 100 characters' })
-    return
-  }
+  const { playedOn, playerAId, playerBId, gamesA, gamesB, park, notes } = parsed.value
 
   const { rows: players } = await pool.query<Player>(
     'SELECT id, name, elo FROM players WHERE id IN ($1, $2)',
@@ -145,7 +117,7 @@ app.post('/api/matches', async (req, res) => {
   // Winner, draw and K-scaling all come from scoreMatch; a draw is stored as
   // winner_id NULL.
   const { scoreA: result, k } = scoreMatch(gamesA, gamesB)
-  const winnerId = result === 1 ? playerA.id : result === 0 ? playerB.id : null
+  const winnerId = winnerOf(result, playerA.id, playerB.id)
 
   const { newRatingA, newRatingB } = computeEloUpdate(playerA.elo, playerB.elo, result, k)
 
@@ -158,7 +130,7 @@ app.post('/api/matches', async (req, res) => {
         (played_on, player_a_id, player_b_id, score_a, score_b, winner_id, player_a_elo_after, player_b_elo_after, park, notes)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id`,
-      [playedOn, playerA.id, playerB.id, gamesA, gamesB, winnerId, newRatingA, newRatingB, park?.trim() || null, notes ?? null],
+      [playedOn, playerA.id, playerB.id, gamesA, gamesB, winnerId, newRatingA, newRatingB, park, notes],
     )
     await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingA, playerA.id])
     await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingB, playerB.id])
@@ -173,9 +145,65 @@ app.post('/api/matches', async (req, res) => {
       scoreA: gamesA,
       scoreB: gamesB,
       winnerId,
-      park: park?.trim() || null,
+      park,
       notes,
     })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+})
+
+// Editing a match can change anything about it, and ratings are a running total, so
+// every rating is rebuilt afterwards. The match keeps its place in the rating order
+// (by id) even if its date changes. Passcode-protected like removing a player.
+app.put('/api/matches/:id', requireAdminPasscode, async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: 'invalid match id' })
+    return
+  }
+  const parsed = parseMatchInput(req.body)
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error })
+    return
+  }
+  const { playedOn, playerAId, playerBId, gamesA, gamesB, park, notes } = parsed.value
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const { rowCount: matchExists } = await client.query('SELECT 1 FROM matches WHERE id = $1', [id])
+    if (!matchExists) {
+      await client.query('ROLLBACK')
+      res.status(404).json({ error: 'match not found' })
+      return
+    }
+    const { rowCount: playerCount } = await client.query(
+      'SELECT 1 FROM players WHERE id IN ($1, $2)',
+      [playerAId, playerBId],
+    )
+    if (playerCount !== 2) {
+      await client.query('ROLLBACK')
+      res.status(404).json({ error: 'player not found' })
+      return
+    }
+
+    const { scoreA: result } = scoreMatch(gamesA, gamesB)
+    await client.query(
+      `UPDATE matches
+       SET played_on = $1, player_a_id = $2, player_b_id = $3, score_a = $4, score_b = $5,
+           winner_id = $6, park = $7, notes = $8
+       WHERE id = $9`,
+      [playedOn, playerAId, playerBId, gamesA, gamesB, winnerOf(result, playerAId, playerBId), park, notes, id],
+    )
+    await replayRatings(client)
+
+    await client.query('COMMIT')
+    res.status(204).end()
   } catch (err) {
     await client.query('ROLLBACK')
     throw err

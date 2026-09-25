@@ -23,10 +23,13 @@ export interface ApiMatch {
   player_b_name: string
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> },
+): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -34,6 +37,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (res.status === 204) return undefined as T
   return res.json()
+}
+
+// Removing a player and editing a logged match need the shared passcode.
+const withPasscode = (passcode: string) => ({ 'x-admin-passcode': passcode })
+
+export interface MatchPayload {
+  playedOn: string
+  playerAId: number
+  playerBId: number
+  scoreA: number
+  scoreB: number
+  park?: string
+  notes?: string
 }
 
 export const api = {
@@ -45,22 +61,21 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
 
-  deletePlayer: (id: number) =>
-    request<void>(`/api/players/${id}`, { method: 'DELETE' }),
+  deletePlayer: (id: number, passcode: string) =>
+    request<void>(`/api/players/${id}`, { method: 'DELETE', headers: withPasscode(passcode) }),
 
   getMatches: () => request<ApiMatch[]>('/api/matches'),
 
-  createMatch: (payload: {
-    playedOn: string
-    playerAId: number
-    playerBId: number
-    scoreA: number
-    scoreB: number
-    park?: string
-    notes?: string
-  }) =>
+  createMatch: (payload: MatchPayload) =>
     request<unknown>('/api/matches', {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+
+  updateMatch: (id: number, payload: MatchPayload, passcode: string) =>
+    request<void>(`/api/matches/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+      headers: withPasscode(passcode),
     }),
 }

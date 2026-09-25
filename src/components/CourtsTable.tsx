@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { PARKS } from '../data/courts'
+import { gradeRank, PARKS } from '../data/courts'
 import { geocodeAddress, getCurrentLocation, getDriveTimes, type DriveTimes, type Origin } from '../lib/geo'
 
 type SortKey = 'name' | 'courts' | 'quality' | 'drive'
@@ -24,11 +24,11 @@ export function CourtsTable() {
       if (sortKey === 'name') return dir * byName
       if (sortKey === 'courts') return dir * (a.courts - b.courts) || byName
       if (sortKey === 'quality') {
-        // Unrated parks always sort last, whichever direction is chosen.
-        if (a.quality === null || b.quality === null) {
-          return a.quality === b.quality ? byName : a.quality === null ? 1 : -1
-        }
-        return dir * (a.quality - b.quality) || byName
+        // Ungraded parks always sort last, whichever direction is chosen.
+        const ra = gradeRank(a.quality)
+        const rb = gradeRank(b.quality)
+        if (ra === null || rb === null) return ra === rb ? byName : ra === null ? 1 : -1
+        return dir * (ra - rb) || byName
       }
       return dir * ((drive?.minutes[a.name] ?? 0) - (drive?.minutes[b.name] ?? 0)) || byName
     })

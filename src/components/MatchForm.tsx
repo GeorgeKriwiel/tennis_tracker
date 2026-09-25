@@ -1,41 +1,49 @@
 import { useState } from 'react'
 import { PARKS } from '../data/courts'
-import type { ApiPlayer } from '../lib/api'
+import type { ApiMatch, ApiPlayer, MatchPayload } from '../lib/api'
+import { PasscodeInput } from './PasscodeInput'
 
 const field =
   'w-full rounded border border-neutral-300 px-2 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900'
 
 const PARK_NAMES = PARKS.map((p) => p.name).sort((a, b) => a.localeCompare(b))
 
+// Logging a new match needs no passcode. Pass `initial` (plus the passcode props) to edit a
+// match that's already been logged, which does.
 export function MatchForm({
   players,
-  onAdd,
+  onSubmit,
+  initial,
+  passcode,
+  onPasscodeChange,
 }: {
   players: ApiPlayer[]
-  onAdd: (payload: {
-    playedOn: string
-    playerAId: number
-    playerBId: number
-    scoreA: number
-    scoreB: number
-    park?: string
-    notes?: string
-  }) => Promise<void>
+  onSubmit: (payload: MatchPayload) => Promise<void>
+  initial?: ApiMatch
+  passcode?: string
+  onPasscodeChange?: (value: string) => void
 }) {
-  const [playedOn, setPlayedOn] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+  const editing = initial !== undefined
+
+  const [playedOn, setPlayedOn] = useState(
+    () => initial?.played_on.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   )
   // Player ids in the order they were tapped: first is player A, second is B.
-  const [picked, setPicked] = useState<number[]>([])
-  const [scoreA, setScoreA] = useState('')
-  const [scoreB, setScoreB] = useState('')
-  const [park, setPark] = useState('')
-  const [notes, setNotes] = useState('')
+  const [picked, setPicked] = useState<number[]>(() =>
+    initial ? [initial.player_a_id, initial.player_b_id] : [],
+  )
+  const [scoreA, setScoreA] = useState(() => (initial ? String(initial.score_a) : ''))
+  const [scoreB, setScoreB] = useState(() => (initial ? String(initial.score_b) : ''))
+  const [park, setPark] = useState(initial?.park ?? '')
+  const [notes, setNotes] = useState(initial?.notes ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const playerA = players.find((p) => p.id === picked[0])
   const playerB = players.find((p) => p.id === picked[1])
+
+  // A match's park may not be in the courts list (older data), so keep it selectable.
+  const parkOptions = park && !PARK_NAMES.includes(park) ? [park, ...PARK_NAMES] : PARK_NAMES
 
   function togglePlayer(id: number) {
     setError(null)
@@ -63,11 +71,15 @@ export function MatchForm({
       setError('Enter a score')
       return
     }
+    if (editing && !passcode?.trim()) {
+      setError('Enter the passcode to edit a match')
+      return
+    }
 
     setSubmitting(true)
     setError(null)
     try {
-      await onAdd({
+      await onSubmit({
         playedOn,
         playerAId: playerA.id,
         playerBId: playerB.id,
@@ -76,12 +88,14 @@ export function MatchForm({
         park: park || undefined,
         notes: notes.trim() || undefined,
       })
-      setPicked([])
-      setScoreA('')
-      setScoreB('')
-      setNotes('')
+      if (!editing) {
+        setPicked([])
+        setScoreA('')
+        setScoreB('')
+        setNotes('')
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log match')
+      setError(err instanceof Error ? err.message : 'Failed to save match')
     } finally {
       setSubmitting(false)
     }
@@ -159,7 +173,7 @@ export function MatchForm({
         />
         <select value={park} onChange={(e) => setPark(e.target.value)} className={field}>
           <option value="">Park (optional)</option>
-          {PARK_NAMES.map((name) => (
+          {parkOptions.map((name) => (
             <option key={name} value={name}>
               {name}
             </option>
@@ -175,6 +189,10 @@ export function MatchForm({
         className={field}
       />
 
+      {editing && onPasscodeChange && (
+        <PasscodeInput value={passcode ?? ''} onChange={onPasscodeChange} />
+      )}
+
       {error && <p className="text-xs text-red-500">{error}</p>}
 
       <button
@@ -182,7 +200,7 @@ export function MatchForm({
         disabled={submitting}
         className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white active:bg-blue-700 disabled:opacity-50"
       >
-        Log match
+        {editing ? 'Save changes' : 'Log match'}
       </button>
     </form>
   )

@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import type { ApiMatch, ApiPlayer } from '../lib/api'
 import { AddPlayerForm } from './AddPlayerForm'
+import { PasscodeInput } from './PasscodeInput'
 
 export function MembersPanel({
   players,
   matches,
+  passcode,
+  onPasscodeChange,
   onAdd,
   onDelete,
 }: {
   players: ApiPlayer[]
   matches: ApiMatch[]
+  passcode: string
+  onPasscodeChange: (value: string) => void
   onAdd: (name: string) => Promise<void>
   onDelete: (id: number) => Promise<void>
 }) {
@@ -53,7 +58,7 @@ export function MembersPanel({
               {confirmingId === p.id ? (
                 <span className="flex shrink-0 items-center gap-3 text-sm">
                   <button
-                    disabled={busy}
+                    disabled={busy || !passcode.trim()}
                     onClick={() => remove(p.id)}
                     className="font-medium text-red-600 disabled:opacity-50"
                   >
@@ -84,6 +89,11 @@ export function MembersPanel({
                     ? 'This player has no matches.'
                     : `This also permanently deletes their ${matchCount(p.id)} ${matchCount(p.id) === 1 ? 'match' : 'matches'} and recalculates everyone's ratings.`}
                 </p>
+              )}
+              {confirmingId === p.id && (
+                <div className="basis-full pt-2">
+                  <PasscodeInput value={passcode} onChange={onPasscodeChange} />
+                </div>
               )}
             </li>
           ))}

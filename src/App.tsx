@@ -6,7 +6,7 @@ import { MatchList } from './components/MatchList'
 import { MembersPanel } from './components/MembersPanel'
 import { Sheet } from './components/Sheet'
 import { Standings } from './components/Standings'
-import { api, type ApiMatch, type ApiPlayer } from './lib/api'
+import { api, type ApiMatch, type ApiPlayer, type MatchPayload } from './lib/api'
 import { PARKS } from './data/courts'
 import { computeStandings } from './lib/records'
 
@@ -24,6 +24,10 @@ function App() {
   const [page, setPage] = useState<Page>('league')
   const [tab, setTab] = useState<Tab>('standings')
   const [sheet, setSheet] = useState<OpenSheet>(null)
+  const [editing, setEditing] = useState<ApiMatch | null>(null)
+  // The shared passcode for removing members and editing logged matches. Kept only in memory
+  // (gone on refresh) and forgotten if the server says it's wrong.
+  const [passcode, setPasscode] = useState('')
 
   const standings = useMemo(
     () => computeStandings(players, matches),
@@ -52,24 +56,31 @@ function App() {
     await refresh()
   }
 
+  async function withPasscode<T>(action: () => Promise<T>) {
+    try {
+      return await action()
+    } catch (err) {
+      if (err instanceof Error && err.message === 'wrong passcode') setPasscode('')
+      throw err
+    }
+  }
+
   async function handleDeletePlayer(id: number) {
-    await api.deletePlayer(id)
+    await withPasscode(() => api.deletePlayer(id, passcode))
     await refresh()
   }
 
-  async function handleAddMatch(payload: {
-    playedOn: string
-    playerAId: number
-    playerBId: number
-    scoreA: number
-    scoreB: number
-    park?: string
-    notes?: string
-  }) {
+  async function handleAddMatch(payload: MatchPayload) {
     await api.createMatch(payload)
     await refresh()
     setSheet(null)
     setTab('standings')
+  }
+
+  async function handleUpdateMatch(id: number, payload: MatchPayload) {
+    await withPasscode(() => api.updateMatch(id, payload, passcode))
+    await refresh()
+    setEditing(null)
   }
 
   return (
@@ -126,7 +137,7 @@ function App() {
                 </button>
               </>
             ) : (
-              <MatchList matches={matches} />
+              <MatchList matches={matches} onEdit={setEditing} />
             )}
           </>
         )}
@@ -146,12 +157,26 @@ function App() {
       <BottomNav page={page} onChange={setPage} />
 
       <Sheet open={sheet === 'match'} title="Log a match" onClose={() => setSheet(null)}>
-        <MatchForm players={players} onAdd={handleAddMatch} />
+        <MatchForm players={players} onSubmit={handleAddMatch} />
+      </Sheet>
+      <Sheet open={editing !== null} title="Edit match" onClose={() => setEditing(null)}>
+        {editing && (
+          <MatchForm
+            key={editing.id}
+            players={players}
+            initial={editing}
+            passcode={passcode}
+            onPasscodeChange={setPasscode}
+            onSubmit={(payload) => handleUpdateMatch(editing.id, payload)}
+          />
+        )}
       </Sheet>
       <Sheet open={sheet === 'player'} title="Members" onClose={() => setSheet(null)}>
         <MembersPanel
           players={players}
           matches={matches}
+          passcode={passcode}
+          onPasscodeChange={setPasscode}
           onAdd={handleAddPlayer}
           onDelete={handleDeletePlayer}
         />

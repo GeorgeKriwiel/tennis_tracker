@@ -1,6 +1,12 @@
 import type { ApiMatch } from '../lib/api'
 
-export function MatchList({ matches }: { matches: ApiMatch[] }) {
+export function MatchList({
+  matches,
+  onEdit,
+}: {
+  matches: ApiMatch[]
+  onEdit: (match: ApiMatch) => void
+}) {
   if (matches.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-neutral-500">
@@ -48,8 +54,14 @@ export function MatchList({ matches }: { matches: ApiMatch[] }) {
                 {m.played_on.slice(0, 10)}
                 {m.park && ` · ${m.park}`}
               </span>
-              <span>
+              <span className="flex items-center gap-3">
                 {m.player_a_elo_after} · {m.player_b_elo_after}
+                <button
+                  onClick={() => onEdit(m)}
+                  className="text-blue-600 dark:text-blue-400"
+                >
+                  Edit
+                </button>
               </span>
             </div>
             {m.notes && (
