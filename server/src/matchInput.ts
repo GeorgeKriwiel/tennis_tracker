@@ -1,11 +1,14 @@
 // Shared by creating and editing a match, so both apply exactly the same rules.
 
+export type MatchType = 'set' | 'tiebreak'
+
 export interface MatchInput {
   playedOn: string
   playerAId: number
   playerBId: number
   gamesA: number
   gamesB: number
+  matchType: MatchType
   park: string | null
   notes: string | null
 }
@@ -17,7 +20,7 @@ const isId = (n: unknown): n is number => Number.isInteger(n) && (n as number) >
 
 export function parseMatchInput(body: unknown): Parsed {
   const b = (body ?? {}) as Record<string, unknown>
-  const { playedOn, playerAId, playerBId, scoreA, scoreB, park, notes } = b
+  const { playedOn, playerAId, playerBId, scoreA, scoreB, type, park, notes } = b
 
   if (
     typeof playedOn !== 'string' ||
@@ -34,7 +37,14 @@ export function parseMatchInput(body: unknown): Parsed {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(playedOn) || Number.isNaN(Date.parse(playedOn))) {
     return { ok: false, error: 'playedOn must be a date like 2026-09-24' }
   }
+  if (type !== undefined && type !== 'set' && type !== 'tiebreak') {
+    return { ok: false, error: 'type must be "set" or "tiebreak"' }
+  }
+  const matchType: MatchType = type === 'tiebreak' ? 'tiebreak' : 'set'
   if (scoreA === 0 && scoreB === 0) return { ok: false, error: 'enter a score' }
+  if (matchType === 'tiebreak' && scoreA === scoreB) {
+    return { ok: false, error: "a tiebreak can't end in a tie" }
+  }
   if (playerAId === playerBId) return { ok: false, error: 'playerAId and playerBId must differ' }
   if (park !== undefined && park !== null && (typeof park !== 'string' || park.length > 100)) {
     return { ok: false, error: 'park must be a string of at most 100 characters' }
@@ -51,6 +61,7 @@ export function parseMatchInput(body: unknown): Parsed {
       playerBId,
       gamesA: scoreA,
       gamesB: scoreB,
+      matchType,
       park: (park as string | null | undefined)?.trim() || null,
       notes: (notes as string | null | undefined) ?? null,
     },

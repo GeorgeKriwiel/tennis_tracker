@@ -6,8 +6,10 @@ CREATE TABLE IF NOT EXISTS players (
   deleted_at TIMESTAMP
 );
 
--- A "match" is a single set: score_a / score_b are the games each player won.
--- winner_id is NULL for a draw (equal games).
+-- A "match" is a single set OR a single tiebreak (match_type), standalone rows of
+-- equal standing — never a set containing a tiebreak. score_a / score_b are games
+-- won (set) or points won (tiebreak). winner_id is NULL for a draw (equal games;
+-- a tiebreak can never draw, enforced in matchInput.ts, so it's always set there).
 CREATE TABLE IF NOT EXISTS matches (
   id SERIAL PRIMARY KEY,
   played_on DATE NOT NULL,
@@ -15,6 +17,7 @@ CREATE TABLE IF NOT EXISTS matches (
   player_b_id INT NOT NULL REFERENCES players(id),
   score_a INT NOT NULL,
   score_b INT NOT NULL,
+  match_type VARCHAR(10) NOT NULL DEFAULT 'set' CHECK (match_type IN ('set', 'tiebreak')),
   winner_id INT REFERENCES players(id),
   player_a_elo_after INT NOT NULL,
   player_b_elo_after INT NOT NULL,
@@ -27,6 +30,9 @@ CREATE TABLE IF NOT EXISTS matches (
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS park VARCHAR(100);
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS score_a INT;
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS score_b INT;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS match_type VARCHAR(10) NOT NULL DEFAULT 'set';
+ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_match_type_check;
+ALTER TABLE matches ADD CONSTRAINT matches_match_type_check CHECK (match_type IN ('set', 'tiebreak'));
 
 DO $$
 BEGIN

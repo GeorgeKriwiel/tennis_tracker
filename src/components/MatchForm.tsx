@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { PARKS } from '../data/courts'
-import type { ApiMatch, ApiPlayer, MatchPayload } from '../lib/api'
+import type { ApiMatch, ApiPlayer, MatchPayload, MatchType } from '../lib/api'
 import { PasscodeInput } from './PasscodeInput'
 
 const field =
@@ -28,6 +28,7 @@ export function MatchForm({
 }) {
   const editing = initial !== undefined
 
+  const [type, setType] = useState<MatchType>(initial?.match_type ?? 'set')
   const [playedOn, setPlayedOn] = useState(
     () => initial?.played_on.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   )
@@ -68,11 +69,15 @@ export function MatchForm({
     const a = Number(scoreA)
     const b = Number(scoreB)
     if (scoreA === '' || scoreB === '' || !Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0) {
-      setError('Enter the games each player won')
+      setError(type === 'set' ? 'Enter the games each player won' : 'Enter the points each player won')
       return
     }
     if (a === 0 && b === 0) {
       setError('Enter a score')
+      return
+    }
+    if (type === 'tiebreak' && a === b) {
+      setError("A tiebreak can't end in a tie")
       return
     }
     if (editing && !passcode?.trim()) {
@@ -89,6 +94,7 @@ export function MatchForm({
         playerBId: playerB.id,
         scoreA: a,
         scoreB: b,
+        type,
         park: park || undefined,
         notes: notes.trim() || undefined,
       })
@@ -97,6 +103,7 @@ export function MatchForm({
         setScoreA('')
         setScoreB('')
         setNotes('')
+        setType('set')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save match')
@@ -131,6 +138,24 @@ export function MatchForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
+      <div className="flex gap-2">
+        {(['set', 'tiebreak'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            aria-pressed={type === t}
+            onClick={() => setType(t)}
+            className={`flex-1 rounded-full border py-2 text-sm font-medium capitalize transition-colors ${
+              type === t
+                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                : 'border-neutral-300 text-neutral-700 dark:border-neutral-600 dark:text-neutral-200'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
       <div>
         <p className="mb-2 text-xs text-neutral-500">Who played? Tap two players</p>
         <div className="flex flex-wrap gap-2">
@@ -163,7 +188,7 @@ export function MatchForm({
               type="number"
               inputMode="numeric"
               min={0}
-              placeholder="Games"
+              placeholder={type === 'set' ? 'Games' : 'Points'}
               value={scoreA}
               onChange={(e) => setScoreA(e.target.value)}
               className={`${field} text-center text-lg`}
@@ -175,7 +200,7 @@ export function MatchForm({
               type="number"
               inputMode="numeric"
               min={0}
-              placeholder="Games"
+              placeholder={type === 'set' ? 'Games' : 'Points'}
               value={scoreB}
               onChange={(e) => setScoreB(e.target.value)}
               className={`${field} text-center text-lg`}

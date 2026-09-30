@@ -25,6 +25,11 @@ export function MatchList({
             key={m.id}
             className="rounded-lg bg-white p-3 shadow-sm dark:bg-neutral-800"
           >
+            {m.match_type === 'tiebreak' && (
+              <span className="mb-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                Tiebreak
+              </span>
+            )}
             <div className="flex items-center justify-between text-sm">
               <span
                 className={

@@ -83,7 +83,7 @@ app.delete('/api/players/:id', requireAdminPasscode, async (req, res) => {
 
 app.get('/api/matches', async (_req, res) => {
   const { rows } = await pool.query(
-    `SELECT m.id, m.played_on, m.score_a, m.score_b, m.park, m.notes, m.winner_id,
+    `SELECT m.id, m.played_on, m.score_a, m.score_b, m.match_type, m.park, m.notes, m.winner_id,
             m.player_a_elo_after, m.player_b_elo_after,
             pa.id AS player_a_id, pa.name AS player_a_name,
             pb.id AS player_b_id, pb.name AS player_b_name
@@ -101,7 +101,7 @@ app.post('/api/matches', async (req, res) => {
     res.status(400).json({ error: parsed.error })
     return
   }
-  const { playedOn, playerAId, playerBId, gamesA, gamesB, park, notes } = parsed.value
+  const { playedOn, playerAId, playerBId, gamesA, gamesB, matchType, park, notes } = parsed.value
 
   const { rows: players } = await pool.query<Player>(
     'SELECT id, name, elo FROM players WHERE id IN ($1, $2)',
@@ -116,7 +116,7 @@ app.post('/api/matches', async (req, res) => {
 
   // Winner, draw and K-scaling all come from scoreMatch; a draw is stored as
   // winner_id NULL.
-  const { scoreA: result, k } = scoreMatch(gamesA, gamesB)
+  const { scoreA: result, k } = scoreMatch(gamesA, gamesB, matchType)
   const winnerId = winnerOf(result, playerA.id, playerB.id)
 
   const { newRatingA, newRatingB } = computeEloUpdate(playerA.elo, playerB.elo, result, k)
@@ -127,10 +127,10 @@ app.post('/api/matches', async (req, res) => {
 
     const { rows: inserted } = await client.query<{ id: number }>(
       `INSERT INTO matches
-        (played_on, player_a_id, player_b_id, score_a, score_b, winner_id, player_a_elo_after, player_b_elo_after, park, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        (played_on, player_a_id, player_b_id, score_a, score_b, match_type, winner_id, player_a_elo_after, player_b_elo_after, park, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id`,
-      [playedOn, playerA.id, playerB.id, gamesA, gamesB, winnerId, newRatingA, newRatingB, park, notes],
+      [playedOn, playerA.id, playerB.id, gamesA, gamesB, matchType, winnerId, newRatingA, newRatingB, park, notes],
     )
     await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingA, playerA.id])
     await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingB, playerB.id])
@@ -144,6 +144,7 @@ app.post('/api/matches', async (req, res) => {
       playerB: { id: playerB.id, name: playerB.name, eloAfter: newRatingB },
       scoreA: gamesA,
       scoreB: gamesB,
+      matchType,
       winnerId,
       park,
       notes,
@@ -170,7 +171,7 @@ app.put('/api/matches/:id', requireAdminPasscode, async (req, res) => {
     res.status(400).json({ error: parsed.error })
     return
   }
-  const { playedOn, playerAId, playerBId, gamesA, gamesB, park, notes } = parsed.value
+  const { playedOn, playerAId, playerBId, gamesA, gamesB, matchType, park, notes } = parsed.value
 
   const client = await pool.connect()
   try {
@@ -192,13 +193,13 @@ app.put('/api/matches/:id', requireAdminPasscode, async (req, res) => {
       return
     }
 
-    const { scoreA: result } = scoreMatch(gamesA, gamesB)
+    const { scoreA: result } = scoreMatch(gamesA, gamesB, matchType)
     await client.query(
       `UPDATE matches
        SET played_on = $1, player_a_id = $2, player_b_id = $3, score_a = $4, score_b = $5,
-           winner_id = $6, park = $7, notes = $8
-       WHERE id = $9`,
-      [playedOn, playerAId, playerBId, gamesA, gamesB, winnerOf(result, playerAId, playerBId), park, notes, id],
+           match_type = $6, winner_id = $7, park = $8, notes = $9
+       WHERE id = $10`,
+      [playedOn, playerAId, playerBId, gamesA, gamesB, matchType, winnerOf(result, playerAId, playerBId), park, notes, id],
     )
     await replayRatings(client)
 

@@ -6,11 +6,14 @@ export interface ApiPlayer {
   elo: number
 }
 
+export type MatchType = 'set' | 'tiebreak'
+
 export interface ApiMatch {
   id: number
   played_on: string
   score_a: number
   score_b: number
+  match_type: MatchType
   park: string | null
   notes: string | null
   // null when the match was a draw
@@ -48,6 +51,7 @@ export interface MatchPayload {
   playerBId: number
   scoreA: number
   scoreB: number
+  type: MatchType
   park?: string
   notes?: string
 }

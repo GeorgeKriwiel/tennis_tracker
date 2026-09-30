@@ -14,14 +14,15 @@ export async function replayRatings(client: PoolClient) {
     player_b_id: number
     score_a: number
     score_b: number
-  }>('SELECT id, player_a_id, player_b_id, score_a, score_b FROM matches ORDER BY id')
+    match_type: 'set' | 'tiebreak'
+  }>('SELECT id, player_a_id, player_b_id, score_a, score_b, match_type FROM matches ORDER BY id')
 
   const ratings = new Map<number, number>()
 
   for (const m of matches) {
     const a = ratings.get(m.player_a_id) ?? STARTING_ELO
     const b = ratings.get(m.player_b_id) ?? STARTING_ELO
-    const { scoreA, k } = scoreMatch(m.score_a, m.score_b)
+    const { scoreA, k } = scoreMatch(m.score_a, m.score_b, m.match_type)
     const { newRatingA, newRatingB } = computeEloUpdate(a, b, scoreA, k)
     ratings.set(m.player_a_id, newRatingA)
     ratings.set(m.player_b_id, newRatingB)
