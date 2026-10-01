@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import logo from './assets/logo.png'
 import { BottomNav, type Page } from './components/BottomNav'
 import { CourtsTable } from './components/CourtsTable'
 import { MatchForm } from './components/MatchForm'
@@ -92,7 +93,9 @@ function App() {
   return (
     <div className="mx-auto min-h-svh max-w-md bg-court">
       <header className="flex h-52 flex-col items-center justify-center bg-court px-6 pb-8 text-center text-white">
-        <div className="text-5xl">🎾</div>
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white p-3 shadow-md">
+          <img src={logo} alt="Tennis Tracker logo" className="h-full w-full object-contain" />
+        </div>
         <h1 className="mt-2 text-2xl font-bold">
           {page === 'league' ? LEAGUE_NAME : 'PDX Courts'}
         </h1>
