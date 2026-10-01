@@ -151,7 +151,7 @@ export function MatchForm({
             onClick={() => setType(t)}
             className={`flex-1 rounded-full border py-2 text-sm font-medium capitalize transition-colors ${
               type === t
-                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                ? 'border-court bg-court text-white'
                 : 'border-neutral-300 text-neutral-700 dark:border-neutral-600 dark:text-neutral-200'
             }`}
           >
@@ -173,7 +173,7 @@ export function MatchForm({
                 onClick={() => togglePlayer(p.id)}
                 className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
                   selected
-                    ? 'border-emerald-600 bg-emerald-600 text-white'
+                    ? 'border-court bg-court text-white'
                     : 'border-neutral-300 text-neutral-700 dark:border-neutral-600 dark:text-neutral-200'
                 }`}
               >
@@ -249,7 +249,7 @@ export function MatchForm({
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white active:bg-blue-700 disabled:opacity-50"
+        className="rounded bg-court px-4 py-2 text-sm font-medium text-white active:bg-court-dark disabled:opacity-50"
       >
         {editing ? 'Save changes' : 'Log match'}
       </button>

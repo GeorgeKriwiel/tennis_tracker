@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@theme {
+  /* Brand palette: Wimbledon's grass green (primary) + a tennis-ball yellow
+     (sparing accent — it's pale, so only use it for small high-contrast spots
+     like the floating action button, never as a text color or large fill). */
+  --color-court: #006633;
+  --color-court-dark: #00431f;
+  --color-ball: #f2f65f;
+}
+
 :root {
   color-scheme: light dark;
 }

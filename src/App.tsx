@@ -90,13 +90,13 @@ function App() {
   }
 
   return (
-    <div className="mx-auto min-h-svh max-w-md bg-emerald-950">
-      <header className="flex h-52 flex-col items-center justify-center bg-gradient-to-b from-emerald-600 to-emerald-950 px-6 pb-8 text-center text-white">
+    <div className="mx-auto min-h-svh max-w-md bg-court">
+      <header className="flex h-52 flex-col items-center justify-center bg-court px-6 pb-8 text-center text-white">
         <div className="text-5xl">🎾</div>
         <h1 className="mt-2 text-2xl font-bold">
           {page === 'league' ? LEAGUE_NAME : 'PDX Courts'}
         </h1>
-        <p className="text-sm text-emerald-100/70">
+        <p className="text-sm text-white/70">
           {page === 'league'
             ? `${players.length} ${players.length === 1 ? 'player' : 'players'}`
             : `${PARKS.length} parks · ${TOTAL_COURTS} courts`}
@@ -153,7 +153,7 @@ function App() {
         <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 mx-auto flex max-w-md justify-end px-6">
           <button
             onClick={() => setSheet('match')}
-            className="pointer-events-auto rounded-full bg-neutral-900 px-6 py-4 text-base font-medium text-white shadow-lg active:bg-black"
+            className="pointer-events-auto rounded-full bg-ball px-6 py-4 text-base font-medium text-court shadow-lg active:brightness-95"
           >
             + Match
           </button>

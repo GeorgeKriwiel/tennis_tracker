@@ -63,7 +63,7 @@ export function MatchList({
                 {m.player_a_elo_after} · {m.player_b_elo_after}
                 <button
                   onClick={() => onEdit(m)}
-                  className="text-blue-600 dark:text-blue-400"
+                  className="text-court dark:text-ball"
                 >
                   Edit
                 </button>
