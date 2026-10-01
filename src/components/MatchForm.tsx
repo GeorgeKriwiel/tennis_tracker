@@ -8,6 +8,41 @@ const field =
 
 const PARK_NAMES = PARKS.map((p) => p.name).sort((a, b) => a.localeCompare(b))
 
+// A set can never be more than 8 games (enforced in matchInput.ts too), so picking
+// from a fixed row of buttons is faster than typing on a number pad.
+const SET_GAME_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+function GamePicker({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {SET_GAME_OPTIONS.map((n) => {
+        const selected = value === String(n)
+        return (
+          <button
+            key={n}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(String(n))}
+            className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium transition-colors ${
+              selected
+                ? 'border-court bg-court text-white'
+                : 'border-neutral-300 text-neutral-700 dark:border-neutral-600 dark:text-neutral-200'
+            }`}
+          >
+            {n}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // Logging a new match needs no passcode. Pass `initial` (plus the passcode props) to edit a
 // match that's already been logged, which does.
 export function MatchForm({
@@ -184,36 +219,47 @@ export function MatchForm({
         </div>
       </div>
 
-      {playerA && playerB && (
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1 text-xs text-neutral-500">
-            <span className="truncate">{playerA.name}</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              placeholder={type === 'set' ? 'Games' : 'Points'}
-              max={type === 'set' ? 8 : undefined}
-              value={scoreA}
-              onChange={(e) => setScoreA(e.target.value)}
-              className={`${field} text-center text-lg`}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-neutral-500">
-            <span className="truncate">{playerB.name}</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              placeholder={type === 'set' ? 'Games' : 'Points'}
-              max={type === 'set' ? 8 : undefined}
-              value={scoreB}
-              onChange={(e) => setScoreB(e.target.value)}
-              className={`${field} text-center text-lg`}
-            />
-          </label>
-        </div>
-      )}
+      {playerA &&
+        playerB &&
+        (type === 'set' ? (
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="mb-1 truncate text-xs text-neutral-500">{playerA.name}</p>
+              <GamePicker value={scoreA} onChange={setScoreA} />
+            </div>
+            <div>
+              <p className="mb-1 truncate text-xs text-neutral-500">{playerB.name}</p>
+              <GamePicker value={scoreB} onChange={setScoreB} />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-xs text-neutral-500">
+              <span className="truncate">{playerA.name}</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                placeholder="Points"
+                value={scoreA}
+                onChange={(e) => setScoreA(e.target.value)}
+                className={`${field} text-center text-lg`}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-neutral-500">
+              <span className="truncate">{playerB.name}</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                placeholder="Points"
+                value={scoreB}
+                onChange={(e) => setScoreB(e.target.value)}
+                className={`${field} text-center text-lg`}
+              />
+            </label>
+          </div>
+        ))}
 
       <div className="grid grid-cols-2 gap-3">
         <input
