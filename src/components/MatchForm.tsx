@@ -80,6 +80,10 @@ export function MatchForm({
       setError("A tiebreak can't end in a tie")
       return
     }
+    if (type === 'set' && (a > 8 || b > 8)) {
+      setError('A set score cannot be above 8 games')
+      return
+    }
     if (editing && !passcode?.trim()) {
       setError('Enter the passcode to edit a match')
       return
@@ -137,7 +141,7 @@ export function MatchForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4">
+    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
       <div className="flex gap-2">
         {(['set', 'tiebreak'] as const).map((t) => (
           <button
@@ -189,6 +193,7 @@ export function MatchForm({
               inputMode="numeric"
               min={0}
               placeholder={type === 'set' ? 'Games' : 'Points'}
+              max={type === 'set' ? 8 : undefined}
               value={scoreA}
               onChange={(e) => setScoreA(e.target.value)}
               className={`${field} text-center text-lg`}
@@ -201,6 +206,7 @@ export function MatchForm({
               inputMode="numeric"
               min={0}
               placeholder={type === 'set' ? 'Games' : 'Points'}
+              max={type === 'set' ? 8 : undefined}
               value={scoreB}
               onChange={(e) => setScoreB(e.target.value)}
               className={`${field} text-center text-lg`}

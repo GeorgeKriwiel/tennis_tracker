@@ -45,6 +45,9 @@ export function parseMatchInput(body: unknown): Parsed {
   if (matchType === 'tiebreak' && scoreA === scoreB) {
     return { ok: false, error: "a tiebreak can't end in a tie" }
   }
+  if (matchType === 'set' && (scoreA > 8 || scoreB > 8)) {
+    return { ok: false, error: 'a set score cannot be above 8 games' }
+  }
   if (playerAId === playerBId) return { ok: false, error: 'playerAId and playerBId must differ' }
   if (park !== undefined && park !== null && (typeof park !== 'string' || park.length > 100)) {
     return { ok: false, error: 'park must be a string of at most 100 characters' }

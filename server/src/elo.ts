@@ -1,17 +1,26 @@
 const BASE_K = 30
 
 // A "standard" result needs no K adjustment; going short or long of it nudges K
-// up or down, linearly, clamped to +/-30%. Sets are measured in games (standard
-// = 6 games), tiebreaks in points (standard = 7 points). The per-unit nudge for
-// points is a set's per-game nudge divided by ~4, since a game is roughly 4
-// points, so a similarly "long" result gets a similarly sized K change either way.
-const MIN_K_MULTIPLIER = 0.7
-const MAX_K_MULTIPLIER = 1.3
+// up or down, linearly. Sets are measured in games (standard = 6 games); a
+// tiebreak's points are first converted to game-equivalents (roughly 4 points
+// per game) and run through that same games-standard, rather than having its
+// own separate scale — so a tiebreak only matches a full set's weight once its
+// winner reaches 24 points (6 equivalent games).
+const STANDARD_GAMES = 6
+const K_CHANGE_PER_GAME = 0.1
+const POINTS_PER_GAME = 4
+
+// Sets are capped both ways (±30%) — real sets cluster around 5-7 games so this
+// rarely binds, it's mainly a guard against a mistyped score swinging K hugely.
+// Tiebreaks keep the same upper guard (a freak long or mistyped score can't
+// inflate K unboundedly), but have no floor: the math is naturally self-limiting
+// on the low end anyway (a 1-point "win" only reaches ~x0.43, never near zero or
+// negative), so a short, ordinary breaker should scale down for real rather than
+// flatten out at some arbitrary minimum.
+const MIN_SET_MULTIPLIER = 0.7
+const MAX_MULTIPLIER = 1.3
 
 export type MatchType = 'set' | 'tiebreak'
-
-const STANDARD_SCORE: Record<MatchType, number> = { set: 6, tiebreak: 7 }
-const UNIT_CHANGE: Record<MatchType, number> = { set: 0.1, tiebreak: 0.025 }
 
 // scoreA is player A's actual score: 1 = A won, 0.5 = draw, 0 = A lost. The
 // expected scores are standard Elo (400-point scale), so a draw still moves
@@ -32,12 +41,10 @@ export function computeEloUpdate(
 }
 
 // A match is a single set or a single tiebreak. Whoever scored more wins.
-// Equal scores is a draw (base K, since there's no winning score to scale by) —
-// only possible for a set; a tiebreak can never tie (enforced in matchInput.ts).
-// Otherwise K is scaled by the winner's score relative to that type's standard
-// (set: 6 games x1, 5 x0.9, 7 x1.1; tiebreak: 7 points x1, 11 points x1.1),
-// clamped. The margin below the loser's score (6-0 vs 6-4, 11-9 vs 11-2) is
-// deliberately ignored.
+// Equal scores is a draw (base K) — only possible for a set; a tiebreak can
+// never tie (enforced in matchInput.ts). Otherwise K is scaled by the winner's
+// score, converted to game-equivalents for a tiebreak, relative to the 6-game
+// standard. The margin below the loser's score is deliberately ignored.
 export function scoreMatch(
   gamesA: number,
   gamesB: number,
@@ -45,13 +52,13 @@ export function scoreMatch(
 ): { scoreA: 0 | 0.5 | 1; k: number } {
   if (gamesA === gamesB) return { scoreA: 0.5, k: BASE_K }
 
-  const winnerScore = Math.max(gamesA, gamesB)
-  const multiplier = Math.min(
-    MAX_K_MULTIPLIER,
-    Math.max(
-      MIN_K_MULTIPLIER,
-      1 + UNIT_CHANGE[type] * (winnerScore - STANDARD_SCORE[type]),
-    ),
-  )
+  const winnerRaw = Math.max(gamesA, gamesB)
+  const winnerGames = type === 'tiebreak' ? winnerRaw / POINTS_PER_GAME : winnerRaw
+  const rawMultiplier = 1 + K_CHANGE_PER_GAME * (winnerGames - STANDARD_GAMES)
+  const multiplier =
+    type === 'tiebreak'
+      ? Math.min(MAX_MULTIPLIER, rawMultiplier)
+      : Math.min(MAX_MULTIPLIER, Math.max(MIN_SET_MULTIPLIER, rawMultiplier))
+
   return { scoreA: gamesA > gamesB ? 1 : 0, k: BASE_K * multiplier }
 }
