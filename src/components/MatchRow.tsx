@@ -71,8 +71,18 @@ export function MatchRow({
           </>
         )}
         {onEdit && (
-          <button onClick={onEdit} className="ml-auto shrink-0 pl-2 text-court dark:text-ball">
-            Edit
+          // Quiet on purpose: editing is a rare, passcode-gated fix. Padding gives a ~32px tap
+          // target; the negative margin keeps it from making the row taller.
+          <button
+            onClick={onEdit}
+            aria-label="Edit match"
+            title="Edit match"
+            className="-my-2 -mr-2 ml-auto shrink-0 rounded-full p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+          >
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+              <path d="M13.5 3.5l3 3L7 16H4v-3z" />
+              <path d="M11.5 5.5l3 3" />
+            </svg>
           </button>
         )}
       </div>
