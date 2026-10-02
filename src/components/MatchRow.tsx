@@ -188,7 +188,7 @@ function Player({
         <span className={nameClass}>{side.name}</span>
       )}
       <div className="text-xs tabular-nums">
-        <span className="text-neutral-400">{side.rating}</span> <Delta value={side.delta} />
+        <span className="text-neutral-400">({side.rating})</span> <Delta value={side.delta} />
       </div>
     </div>
   )
