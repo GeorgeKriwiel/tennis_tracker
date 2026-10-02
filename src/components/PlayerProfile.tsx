@@ -109,7 +109,7 @@ export function PlayerProfile({
                 </div>
                 <div className="mt-1 truncate text-xs text-neutral-500">
                   {p.match.played_on.slice(0, 10)}
-                  {p.match.match_type === 'tiebreak' && ' · Tiebreak'}
+                  {p.match.match_type === 'tiebreak' ? ' · Tiebreak' : ' · Set'}
                   {p.match.park && ` · ${p.match.park}`}
                 </div>
               </li>
