@@ -43,14 +43,14 @@ export function MatchList({
           delta: m.player_b_elo_after - b.b,
           bold: draw || m.winner_id === m.player_b_id,
         }
-        // Winner on top; a draw keeps the order it was logged in.
+        // Winner on the left; a draw keeps the order it was logged in.
         const bWon = m.winner_id === m.player_b_id
         return (
           <MatchRow
             key={m.id}
             match={m}
-            top={bWon ? bSide : a}
-            bottom={bWon ? a : bSide}
+            left={bWon ? bSide : a}
+            right={bWon ? a : bSide}
             onSelectPlayer={onSelectPlayer}
             onEdit={() => onEdit(m)}
           />

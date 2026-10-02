@@ -11,47 +11,37 @@ export interface Side {
   bold: boolean
 }
 
-// One match in chess.com's game-history style: both players stacked, each with their
-// pre-match rating and score, then a date/type/park line. Shared by the Matches tab and
-// player profiles so the two always look the same. With `aside` (a profile's result badge
-// and rating change) the per-player rating changes are left out; without it, each line
-// shows its own player's change.
+// One match as a scoreboard: winner (or, on a profile, that player) on the left, the score
+// in the middle as the one big number, and each player's pre-match rating and ELO change
+// small under their name. Then a date/type/park line. Shared by the Matches tab and player
+// profiles so the two always look the same.
 export function MatchRow({
   match,
-  top,
-  bottom,
+  left,
+  right,
   selfId,
-  aside,
   onSelectPlayer,
   onEdit,
 }: {
   match: ApiMatch
-  top: Side
-  bottom: Side
+  left: Side
+  right: Side
   // The profile being viewed, whose name isn't a link
   selfId?: number
-  aside?: React.ReactNode
   onSelectPlayer: (playerId: number) => void
   onEdit?: () => void
 }) {
+  const link = (side: Side) => (side.id === selfId ? undefined : () => onSelectPlayer(side.id))
   return (
     <li className="py-3">
-      <div className="flex items-center gap-3">
-        <div
-          className={`grid min-w-0 flex-1 items-center gap-x-3 gap-y-0.5 ${
-            aside ? 'grid-cols-[minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_auto_2.25rem]'
-          }`}
-        >
-          {[top, bottom].map((side) => (
-            <Line
-              key={side.id}
-              side={side}
-              showDelta={!aside}
-              onClick={side.id === selfId ? undefined : () => onSelectPlayer(side.id)}
-            />
-          ))}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+        <Player side={left} align="left" onClick={link(left)} />
+        <div className="text-xl whitespace-nowrap tabular-nums">
+          <span className={scoreClass(left.bold)}>{left.score}</span>
+          <span className="text-neutral-400"> – </span>
+          <span className={scoreClass(right.bold)}>{right.score}</span>
         </div>
-        {aside}
+        <Player side={right} align="right" onClick={link(right)} />
       </div>
       <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
         <span className="shrink-0">{match.played_on.slice(0, 10)}</span>
@@ -91,53 +81,45 @@ export function MatchRow({
   )
 }
 
-export function Delta({ value }: { value: number }) {
+function scoreClass(bold: boolean) {
+  return bold ? 'font-semibold text-neutral-900 dark:text-neutral-100' : 'text-neutral-400'
+}
+
+function Delta({ value }: { value: number }) {
   return (
-    <span
-      className={`text-right text-sm font-medium tabular-nums ${
-        value >= 0 ? 'text-green-600' : 'text-red-500'
-      }`}
-    >
+    <span className={`font-medium ${value >= 0 ? 'text-green-600' : 'text-red-500'}`}>
       {value >= 0 ? '+' : '−'}
       {Math.abs(value)}
     </span>
   )
 }
 
-function Line({
+function Player({
   side,
-  showDelta,
+  align,
   onClick,
 }: {
   side: Side
-  showDelta: boolean
+  align: 'left' | 'right'
   onClick?: () => void
 }) {
-  const nameClass = `truncate ${
+  const nameClass = `block max-w-full truncate ${align === 'right' ? 'ml-auto' : ''} ${
     side.bold
       ? 'font-semibold text-neutral-900 dark:text-neutral-100'
       : 'text-neutral-600 dark:text-neutral-300'
   }`
   return (
-    <>
-      <div className="flex min-w-0 items-baseline gap-1.5">
-        {onClick ? (
-          <button onClick={onClick} className={`${nameClass} underline-offset-2 hover:underline`}>
-            {side.name}
-          </button>
-        ) : (
-          <span className={nameClass}>{side.name}</span>
-        )}
-        <span className="shrink-0 text-sm text-neutral-400 tabular-nums">({side.rating})</span>
+    <div className={`min-w-0 ${align === 'right' ? 'text-right' : ''}`}>
+      {onClick ? (
+        <button onClick={onClick} className={`${nameClass} underline-offset-2 hover:underline`}>
+          {side.name}
+        </button>
+      ) : (
+        <span className={nameClass}>{side.name}</span>
+      )}
+      <div className="text-xs tabular-nums">
+        <span className="text-neutral-400">{side.rating}</span> <Delta value={side.delta} />
       </div>
-      <span
-        className={`text-right text-lg leading-tight tabular-nums ${
-          side.bold ? 'font-semibold text-neutral-900 dark:text-neutral-100' : 'text-neutral-400'
-        }`}
-      >
-        {side.score}
-      </span>
-      {showDelta && <Delta value={side.delta} />}
-    </>
+    </div>
   )
 }
