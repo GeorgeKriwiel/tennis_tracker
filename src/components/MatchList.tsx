@@ -3,9 +3,11 @@ import type { ApiMatch } from '../lib/api'
 export function MatchList({
   matches,
   onEdit,
+  onSelectPlayer,
 }: {
   matches: ApiMatch[]
   onEdit: (match: ApiMatch) => void
+  onSelectPlayer: (playerId: number) => void
 }) {
   if (matches.length === 0) {
     return (
@@ -31,7 +33,8 @@ export function MatchList({
               </span>
             )}
             <div className="flex items-center justify-between text-sm">
-              <span
+              <button
+                onClick={() => onSelectPlayer(m.player_a_id)}
                 className={
                   aWon || draw
                     ? 'font-semibold text-neutral-900 dark:text-neutral-100'
@@ -39,9 +42,10 @@ export function MatchList({
                 }
               >
                 {m.player_a_name}
-              </span>
+              </button>
               <span className="text-xs text-neutral-400">{draw ? 'draw' : 'vs'}</span>
-              <span
+              <button
+                onClick={() => onSelectPlayer(m.player_b_id)}
                 className={
                   !aWon || draw
                     ? 'font-semibold text-neutral-900 dark:text-neutral-100'
@@ -49,7 +53,7 @@ export function MatchList({
                 }
               >
                 {m.player_b_name}
-              </span>
+              </button>
             </div>
             <div className="mt-1 text-center text-xs text-neutral-500">
               {m.score_a}-{m.score_b}

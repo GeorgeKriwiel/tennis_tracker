@@ -2,7 +2,13 @@ import type { Standing } from '../lib/records'
 
 const STREAK_MIN = 3
 
-export function Standings({ standings }: { standings: Standing[] }) {
+export function Standings({
+  standings,
+  onSelect,
+}: {
+  standings: Standing[]
+  onSelect: (playerId: number) => void
+}) {
   if (standings.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-neutral-500">
@@ -14,10 +20,11 @@ export function Standings({ standings }: { standings: Standing[] }) {
   return (
     <ol className="flex flex-col">
       {standings.map(({ player, wins, draws, losses, winPct, streak, lastDelta }, i) => (
-        <li
-          key={player.id}
-          className="flex items-center gap-3 border-b border-neutral-100 py-4 last:border-0 dark:border-neutral-800"
-        >
+        <li key={player.id} className="border-b border-neutral-100 last:border-0 dark:border-neutral-800">
+          <button
+            onClick={() => onSelect(player.id)}
+            className="flex w-full items-center gap-3 py-4 text-left active:bg-neutral-50 dark:active:bg-neutral-800"
+          >
           <span className="w-8 shrink-0 text-center text-lg text-neutral-400">
             {i === 0 ? '👑' : `${i + 1}.`}
           </span>
@@ -50,6 +57,10 @@ export function Standings({ standings }: { standings: Standing[] }) {
           <span className="w-20 shrink-0 text-right text-neutral-500">
             {player.elo} ELO
           </span>
+          <span aria-hidden className="-ml-1 shrink-0 text-neutral-300 dark:text-neutral-600">
+            ›
+          </span>
+          </button>
         </li>
       ))}
     </ol>

@@ -64,3 +64,103 @@ export function computeStandings(
     })
     .sort((a, b) => b.player.elo - a.player.elo)
 }
+
+export type Result = 'win' | 'draw' | 'loss'
+
+export interface ProfileMatch {
+  match: ApiMatch
+  result: Result
+  myScore: number
+  oppScore: number
+  opponentId: number
+  opponentName: string
+  // Both players' ratings going into the match, and this player's change from it
+  myBefore: number
+  oppBefore: number
+  delta: number
+}
+
+export interface Profile {
+  // Newest first, for the history list
+  history: ProfileMatch[]
+  // This player's rating after each match, in the order ratings were applied (match id),
+  // starting from the 1200 baseline
+  ratingPoints: { elo: number; date: string | null; opponentName: string | null }[]
+  highest: { elo: number; date: string | null }
+  bestWin: { opponentName: string; elo: number } | null
+  bestWinStreak: number
+}
+
+// Ratings are applied in match-id order (see server/src/ratings.ts), so pre-match ratings
+// are recovered by walking every match in that order from the baseline.
+function ratingsBefore(matches: ApiMatch[]) {
+  const current = new Map<number, number>()
+  const before = new Map<number, { a: number; b: number }>()
+  for (const m of [...matches].sort((x, y) => x.id - y.id)) {
+    before.set(m.id, {
+      a: current.get(m.player_a_id) ?? STARTING_ELO,
+      b: current.get(m.player_b_id) ?? STARTING_ELO,
+    })
+    current.set(m.player_a_id, m.player_a_elo_after)
+    current.set(m.player_b_id, m.player_b_elo_after)
+  }
+  return before
+}
+
+export function computeProfile(playerId: number, matches: ApiMatch[]): Profile {
+  const before = ratingsBefore(matches)
+
+  const mine: ProfileMatch[] = matches
+    .filter((m) => m.player_a_id === playerId || m.player_b_id === playerId)
+    .map((m) => {
+      const isA = m.player_a_id === playerId
+      const b = before.get(m.id)!
+      const myBefore = isA ? b.a : b.b
+      return {
+        match: m,
+        result:
+          m.winner_id === null ? 'draw' : m.winner_id === playerId ? 'win' : 'loss',
+        myScore: isA ? m.score_a : m.score_b,
+        oppScore: isA ? m.score_b : m.score_a,
+        opponentId: isA ? m.player_b_id : m.player_a_id,
+        opponentName: isA ? m.player_b_name : m.player_a_name,
+        myBefore,
+        oppBefore: isA ? b.b : b.a,
+        delta: eloAfter(m, playerId) - myBefore,
+      }
+    })
+
+  const ratingOrder = [...mine].sort((x, y) => x.match.id - y.match.id)
+  const ratingPoints: Profile['ratingPoints'] = [
+    { elo: STARTING_ELO, date: null, opponentName: null },
+    ...ratingOrder.map((p) => ({
+      elo: eloAfter(p.match, playerId),
+      date: p.match.played_on.slice(0, 10),
+      opponentName: p.opponentName,
+    })),
+  ]
+  const highest = ratingPoints.reduce((best, p) => (p.elo > best.elo ? p : best))
+
+  const bestWin = mine
+    .filter((p) => p.result === 'win')
+    .reduce<ProfileMatch | null>((best, p) => (!best || p.oppBefore > best.oppBefore ? p : best), null)
+
+  // Streaks follow play order (date), like the standings' current streak; a draw breaks one.
+  const oldestFirst = [...mine].sort(
+    (x, y) => x.match.played_on.localeCompare(y.match.played_on) || x.match.id - y.match.id,
+  )
+  let bestWinStreak = 0
+  let run = 0
+  for (const p of oldestFirst) {
+    run = p.result === 'win' ? run + 1 : 0
+    bestWinStreak = Math.max(bestWinStreak, run)
+  }
+
+  return {
+    history: oldestFirst.reverse(),
+    ratingPoints,
+    highest: { elo: highest.elo, date: highest.date },
+    bestWin: bestWin && { opponentName: bestWin.opponentName, elo: bestWin.oppBefore },
+    bestWinStreak,
+  }
+}
