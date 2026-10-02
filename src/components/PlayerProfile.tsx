@@ -1,7 +1,13 @@
 import type { ApiMatch } from '../lib/api'
-import { computeProfile, type Standing } from '../lib/records'
-import { MatchRow } from './MatchRow'
+import { computeProfile, type Result, type Standing } from '../lib/records'
+import { Delta, StackedMatchRow } from './MatchRow'
 import { RatingChart } from './RatingChart'
+
+const RESULT_STYLE: Record<Result, { sign: string; className: string; label: string }> = {
+  win: { sign: '+', className: 'bg-green-600 text-white', label: 'Won' },
+  draw: { sign: '=', className: 'bg-neutral-400 text-white', label: 'Drew' },
+  loss: { sign: '−', className: 'bg-red-500 text-white', label: 'Lost' },
+}
 
 export function PlayerProfile({
   standing,
@@ -65,30 +71,46 @@ export function PlayerProfile({
           Match history
         </h3>
         <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
-          {profile.history.map((p) => (
-            <MatchRow
-              key={p.match.id}
-              match={p.match}
-              selfId={player.id}
-              left={{
-                id: player.id,
-                name: player.name,
-                rating: p.myBefore,
-                score: p.myScore,
-                delta: p.delta,
-                bold: p.result !== 'loss',
-              }}
-              right={{
-                id: p.opponentId,
-                name: p.opponentName,
-                rating: p.oppBefore,
-                score: p.oppScore,
-                delta: p.oppDelta,
-                bold: p.result !== 'win',
-              }}
-              onSelectPlayer={onSelectPlayer}
-            />
-          ))}
+          {profile.history.map((p) => {
+            const style = RESULT_STYLE[p.result]
+            return (
+              <StackedMatchRow
+                key={p.match.id}
+                match={p.match}
+                selfId={player.id}
+                top={{
+                  id: player.id,
+                  name: player.name,
+                  rating: p.myBefore,
+                  score: p.myScore,
+                  delta: p.delta,
+                  bold: p.result !== 'loss',
+                }}
+                bottom={{
+                  id: p.opponentId,
+                  name: p.opponentName,
+                  rating: p.oppBefore,
+                  score: p.oppScore,
+                  delta: p.oppDelta,
+                  bold: p.result !== 'win',
+                }}
+                onSelectPlayer={onSelectPlayer}
+                aside={
+                  <>
+                    <span
+                      aria-label={style.label}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm font-bold ${style.className}`}
+                    >
+                      {style.sign}
+                    </span>
+                    <span className="w-9 shrink-0 text-right text-sm tabular-nums">
+                      <Delta value={p.delta} />
+                    </span>
+                  </>
+                }
+              />
+            )
+          })}
         </ul>
       </section>
     </div>

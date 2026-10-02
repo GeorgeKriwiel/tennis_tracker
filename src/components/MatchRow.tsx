@@ -11,10 +11,9 @@ export interface Side {
   bold: boolean
 }
 
-// One match as a scoreboard: winner (or, on a profile, that player) on the left, the score
-// in the middle as the one big number, and each player's pre-match rating and ELO change
-// small under their name. Then a date/type/park line. Shared by the Matches tab and player
-// profiles so the two always look the same.
+// The Matches tab's row: a side-by-side scoreboard, winner on the left, the score in the
+// middle as the one big number, and each player's pre-match rating and ELO change small
+// under their name.
 export function MatchRow({
   match,
   left,
@@ -43,6 +42,15 @@ export function MatchRow({
         </div>
         <Player side={right} align="right" onClick={link(right)} />
       </div>
+      <MatchMeta match={match} onEdit={onEdit} />
+    </li>
+  )
+}
+
+// Date · Set/Tiebreak · park, the edit pencil, and any notes. Shared by both row layouts.
+function MatchMeta({ match, onEdit }: { match: ApiMatch; onEdit?: () => void }) {
+  return (
+    <>
       <div className="mt-1 flex items-center gap-1 text-xs text-neutral-500">
         <span className="shrink-0">{match.played_on.slice(0, 10)}</span>
         <span aria-hidden>·</span>
@@ -77,7 +85,69 @@ export function MatchRow({
         )}
       </div>
       {match.notes && <div className="mt-0.5 text-xs text-neutral-400">{match.notes}</div>}
+    </>
+  )
+}
+
+// A player profile's row, like chess.com's game history: both players stacked (this player
+// on top), each with their pre-match rating and score, then `aside` — the profile's big
+// green/red result badge and ELO change, which the user considers essential here.
+export function StackedMatchRow({
+  match,
+  top,
+  bottom,
+  selfId,
+  aside,
+  onSelectPlayer,
+}: {
+  match: ApiMatch
+  top: Side
+  bottom: Side
+  selfId: number
+  aside: React.ReactNode
+  onSelectPlayer: (playerId: number) => void
+}) {
+  return (
+    <li className="py-3">
+      <div className="flex items-center gap-3">
+        <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5">
+          {[top, bottom].map((side) => (
+            <StackedLine
+              key={side.id}
+              side={side}
+              onClick={side.id === selfId ? undefined : () => onSelectPlayer(side.id)}
+            />
+          ))}
+        </div>
+        {aside}
+      </div>
+      <MatchMeta match={match} />
     </li>
+  )
+}
+
+function StackedLine({ side, onClick }: { side: Side; onClick?: () => void }) {
+  const nameClass = `truncate ${
+    side.bold
+      ? 'font-semibold text-neutral-900 dark:text-neutral-100'
+      : 'text-neutral-600 dark:text-neutral-300'
+  }`
+  return (
+    <>
+      <div className="flex min-w-0 items-baseline gap-1.5">
+        {onClick ? (
+          <button onClick={onClick} className={`${nameClass} underline-offset-2 hover:underline`}>
+            {side.name}
+          </button>
+        ) : (
+          <span className={nameClass}>{side.name}</span>
+        )}
+        <span className="shrink-0 text-sm text-neutral-400 tabular-nums">({side.rating})</span>
+      </div>
+      <span className={`text-right text-lg leading-tight tabular-nums ${scoreClass(side.bold)}`}>
+        {side.score}
+      </span>
+    </>
   )
 }
 
@@ -85,7 +155,7 @@ function scoreClass(bold: boolean) {
   return bold ? 'font-semibold text-neutral-900 dark:text-neutral-100' : 'text-neutral-400'
 }
 
-function Delta({ value }: { value: number }) {
+export function Delta({ value }: { value: number }) {
   return (
     <span className={`font-medium ${value >= 0 ? 'text-green-600' : 'text-red-500'}`}>
       {value >= 0 ? '+' : '−'}
