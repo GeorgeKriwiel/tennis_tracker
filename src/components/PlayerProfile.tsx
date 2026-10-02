@@ -1,5 +1,6 @@
 import type { ApiMatch } from '../lib/api'
 import { computeProfile, type Result, type Standing } from '../lib/records'
+import { Delta, MatchRow } from './MatchRow'
 import { RatingChart } from './RatingChart'
 
 const RESULT_STYLE: Record<Result, { sign: string; className: string; label: string }> = {
@@ -73,86 +74,45 @@ export function PlayerProfile({
           {profile.history.map((p) => {
             const style = RESULT_STYLE[p.result]
             return (
-              <li key={p.match.id} className="py-3">
-                <div className="flex items-center gap-3">
-                  {/* Both players stacked, each with their rating going into the match and their
-                      score, like chess.com's game history. This player is always on top. */}
-                  <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5">
-                    <PlayerLine
-                      name={player.name}
-                      rating={p.myBefore}
-                      won={p.result !== 'loss'}
-                    />
-                    <span className={scoreClass(p.result !== 'loss')}>{p.myScore}</span>
-                    <PlayerLine
-                      name={p.opponentName}
-                      rating={p.oppBefore}
-                      won={p.result !== 'win'}
-                      onClick={() => onSelectPlayer(p.opponentId)}
-                    />
-                    <span className={scoreClass(p.result !== 'win')}>{p.oppScore}</span>
-                  </div>
-                  <span
-                    aria-label={style.label}
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm font-bold ${style.className}`}
-                  >
-                    {style.sign}
-                  </span>
-                  <span
-                    className={`w-9 shrink-0 text-right text-sm font-medium tabular-nums ${
-                      p.delta >= 0 ? 'text-green-600' : 'text-red-500'
-                    }`}
-                  >
-                    {p.delta >= 0 ? '+' : '−'}
-                    {Math.abs(p.delta)}
-                  </span>
-                </div>
-                <div className="mt-1 truncate text-xs text-neutral-500">
-                  {p.match.played_on.slice(0, 10)}
-                  {p.match.match_type === 'tiebreak' ? ' · Tiebreak' : ' · Set'}
-                  {p.match.park && ` · ${p.match.park}`}
-                </div>
-              </li>
+              <MatchRow
+                key={p.match.id}
+                match={p.match}
+                selfId={player.id}
+                top={{
+                  id: player.id,
+                  name: player.name,
+                  rating: p.myBefore,
+                  score: p.myScore,
+                  delta: p.delta,
+                  bold: p.result !== 'loss',
+                }}
+                bottom={{
+                  id: p.opponentId,
+                  name: p.opponentName,
+                  rating: p.oppBefore,
+                  score: p.oppScore,
+                  delta: p.oppDelta,
+                  bold: p.result !== 'win',
+                }}
+                onSelectPlayer={onSelectPlayer}
+                aside={
+                  <>
+                    <span
+                      aria-label={style.label}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sm font-bold ${style.className}`}
+                    >
+                      {style.sign}
+                    </span>
+                    <span className="w-9 shrink-0 text-right">
+                      <Delta value={p.delta} />
+                    </span>
+                  </>
+                }
+              />
             )
           })}
         </ul>
       </section>
-    </div>
-  )
-}
-
-function scoreClass(won: boolean) {
-  return `text-right text-lg leading-tight tabular-nums ${
-    won ? 'font-semibold text-neutral-900 dark:text-neutral-100' : 'text-neutral-400'
-  }`
-}
-
-// One player's name and pre-match rating; the winner (or both, on a draw) is in bold.
-// The opponent's name opens their profile.
-function PlayerLine({
-  name,
-  rating,
-  won,
-  onClick,
-}: {
-  name: string
-  rating: number
-  won: boolean
-  onClick?: () => void
-}) {
-  const nameClass = `truncate ${
-    won ? 'font-semibold text-neutral-900 dark:text-neutral-100' : 'text-neutral-600 dark:text-neutral-300'
-  }`
-  return (
-    <div className="flex min-w-0 items-baseline gap-1.5">
-      {onClick ? (
-        <button onClick={onClick} className={`${nameClass} underline-offset-2 hover:underline`}>
-          {name}
-        </button>
-      ) : (
-        <span className={nameClass}>{name}</span>
-      )}
-      <span className="shrink-0 text-sm text-neutral-400 tabular-nums">({rating})</span>
     </div>
   )
 }

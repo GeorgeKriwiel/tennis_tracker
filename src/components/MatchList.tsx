@@ -1,4 +1,7 @@
+import { useMemo } from 'react'
 import type { ApiMatch } from '../lib/api'
+import { ratingsBefore } from '../lib/records'
+import { MatchRow, type Side } from './MatchRow'
 
 export function MatchList({
   matches,
@@ -9,6 +12,8 @@ export function MatchList({
   onEdit: (match: ApiMatch) => void
   onSelectPlayer: (playerId: number) => void
 }) {
+  const before = useMemo(() => ratingsBefore(matches), [matches])
+
   if (matches.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-neutral-500">
@@ -18,65 +23,37 @@ export function MatchList({
   }
 
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
       {matches.map((m) => {
+        const b = before.get(m.id)!
         const draw = m.winner_id === null
-        const aWon = m.winner_id === m.player_a_id
+        const a: Side = {
+          id: m.player_a_id,
+          name: m.player_a_name,
+          rating: b.a,
+          score: m.score_a,
+          delta: m.player_a_elo_after - b.a,
+          bold: draw || m.winner_id === m.player_a_id,
+        }
+        const bSide: Side = {
+          id: m.player_b_id,
+          name: m.player_b_name,
+          rating: b.b,
+          score: m.score_b,
+          delta: m.player_b_elo_after - b.b,
+          bold: draw || m.winner_id === m.player_b_id,
+        }
+        // Winner on top; a draw keeps the order it was logged in.
+        const bWon = m.winner_id === m.player_b_id
         return (
-          <li
+          <MatchRow
             key={m.id}
-            className="rounded-lg bg-white p-3 shadow-sm dark:bg-neutral-800"
-          >
-            {m.match_type === 'tiebreak' && (
-              <span className="mb-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                Tiebreak
-              </span>
-            )}
-            <div className="flex items-center justify-between text-sm">
-              <button
-                onClick={() => onSelectPlayer(m.player_a_id)}
-                className={
-                  aWon || draw
-                    ? 'font-semibold text-neutral-900 dark:text-neutral-100'
-                    : 'text-neutral-500'
-                }
-              >
-                {m.player_a_name}
-              </button>
-              <span className="text-xs text-neutral-400">{draw ? 'draw' : 'vs'}</span>
-              <button
-                onClick={() => onSelectPlayer(m.player_b_id)}
-                className={
-                  !aWon || draw
-                    ? 'font-semibold text-neutral-900 dark:text-neutral-100'
-                    : 'text-neutral-500'
-                }
-              >
-                {m.player_b_name}
-              </button>
-            </div>
-            <div className="mt-1 text-center text-xs text-neutral-500">
-              {m.score_a}-{m.score_b}
-            </div>
-            <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
-              <span>
-                {m.played_on.slice(0, 10)}
-                {m.park && ` · ${m.park}`}
-              </span>
-              <span className="flex items-center gap-3">
-                {m.player_a_elo_after} · {m.player_b_elo_after}
-                <button
-                  onClick={() => onEdit(m)}
-                  className="text-court dark:text-ball"
-                >
-                  Edit
-                </button>
-              </span>
-            </div>
-            {m.notes && (
-              <div className="mt-1 text-xs text-neutral-400">{m.notes}</div>
-            )}
-          </li>
+            match={m}
+            top={bWon ? bSide : a}
+            bottom={bWon ? a : bSide}
+            onSelectPlayer={onSelectPlayer}
+            onEdit={() => onEdit(m)}
+          />
         )
       })}
     </ul>

@@ -78,6 +78,7 @@ export interface ProfileMatch {
   myBefore: number
   oppBefore: number
   delta: number
+  oppDelta: number
 }
 
 export interface Profile {
@@ -93,7 +94,7 @@ export interface Profile {
 
 // Ratings are applied in match-id order (see server/src/ratings.ts), so pre-match ratings
 // are recovered by walking every match in that order from the baseline.
-function ratingsBefore(matches: ApiMatch[]) {
+export function ratingsBefore(matches: ApiMatch[]) {
   const current = new Map<number, number>()
   const before = new Map<number, { a: number; b: number }>()
   for (const m of [...matches].sort((x, y) => x.id - y.id)) {
@@ -127,6 +128,7 @@ export function computeProfile(playerId: number, matches: ApiMatch[]): Profile {
         myBefore,
         oppBefore: isA ? b.b : b.a,
         delta: eloAfter(m, playerId) - myBefore,
+        oppDelta: (isA ? m.player_b_elo_after : m.player_a_elo_after) - (isA ? b.b : b.a),
       }
     })
 
