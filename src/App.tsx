@@ -13,7 +13,7 @@ import { api, type ApiMatch, type ApiPlayer, type MatchPayload } from './lib/api
 import { PARKS } from './data/courts'
 import { computeStandings, roundElo } from './lib/records'
 
-const LEAGUE_NAME = 'Tennis Tracker'
+const LEAGUE_NAME = 'Tilted Tennis'
 const TOTAL_COURTS = PARKS.reduce((sum, p) => sum + p.courts, 0)
 
 type Tab = 'standings' | 'matches'
@@ -150,7 +150,7 @@ function App() {
       ) : (
         <header className="flex h-52 flex-col items-center justify-center bg-court px-6 pb-8 text-center text-white">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white p-3 shadow-md">
-            <img src={logo} alt="Tennis Tracker logo" className="h-full w-full object-contain" />
+            <img src={logo} alt="Tilted Tennis logo" className="h-full w-full object-contain" />
           </div>
           <h1 className="mt-2 text-2xl font-bold">
             {page === 'league' ? LEAGUE_NAME : 'PDX Courts'}

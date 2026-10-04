@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+The app is called **Tilted Tennis** (renamed from "Tennis Tracker" on 2026-10-04; the name lives in `index.html`'s `<title>` and `LEAGUE_NAME` in `App.tsx`). The repo, folder, Railway project/services and `*.up.railway.app` domains keep the old `tennis_tracker` naming.
+
 This repo has two parts: a frontend (root) and a backend API (`server/`), deployed as separate services in the same Railway project but wired together at runtime — the frontend has no local persistence of its own, it's a thin client over the API's shared, ELO-rated leaderboard. Multiple people pointed at the same API/database see and add to the same players and matches.
 
 ## Deployment (Railway)
