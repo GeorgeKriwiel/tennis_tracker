@@ -13,6 +13,18 @@ export interface Standing {
 
 const STARTING_ELO = 1200
 
+// Ratings are stored exact (fractional); round only when displaying one. The `+ 0`
+// turns -0 into 0, so a change of -0.3 shows as "+0" rather than "−0".
+export function roundElo(elo: number) {
+  return Math.round(elo) + 0
+}
+
+// The order ratings are applied in — the date played, then the order logged for
+// same-day matches. Must match server/src/ratings.ts.
+function ratingOrder(x: ApiMatch, y: ApiMatch) {
+  return x.played_on.localeCompare(y.played_on) || x.id - y.id
+}
+
 function eloAfter(match: ApiMatch, playerId: number) {
   return match.player_a_id === playerId
     ? match.player_a_elo_after
@@ -84,20 +96,20 @@ export interface ProfileMatch {
 export interface Profile {
   // Newest first, for the history list
   history: ProfileMatch[]
-  // This player's rating after each match, in the order ratings were applied (match id),
-  // starting from the 1200 baseline
+  // This player's rating after each match, in the order ratings were applied (played
+  // order), starting from the 1200 baseline
   ratingPoints: { elo: number; date: string | null; opponentName: string | null }[]
   highest: { elo: number; date: string | null }
   bestWin: { opponentName: string; elo: number } | null
   bestWinStreak: number
 }
 
-// Ratings are applied in match-id order (see server/src/ratings.ts), so pre-match ratings
-// are recovered by walking every match in that order from the baseline.
+// Ratings are applied in played order (see ratingOrder), so pre-match ratings are
+// recovered by walking every match in that order from the baseline.
 export function ratingsBefore(matches: ApiMatch[]) {
   const current = new Map<number, number>()
   const before = new Map<number, { a: number; b: number }>()
-  for (const m of [...matches].sort((x, y) => x.id - y.id)) {
+  for (const m of [...matches].sort(ratingOrder)) {
     before.set(m.id, {
       a: current.get(m.player_a_id) ?? STARTING_ELO,
       b: current.get(m.player_b_id) ?? STARTING_ELO,
@@ -132,10 +144,11 @@ export function computeProfile(playerId: number, matches: ApiMatch[]): Profile {
       }
     })
 
-  const ratingOrder = [...mine].sort((x, y) => x.match.id - y.match.id)
+  // Streaks and the rating line both follow play order; a draw breaks a streak.
+  const oldestFirst = [...mine].sort((x, y) => ratingOrder(x.match, y.match))
   const ratingPoints: Profile['ratingPoints'] = [
     { elo: STARTING_ELO, date: null, opponentName: null },
-    ...ratingOrder.map((p) => ({
+    ...oldestFirst.map((p) => ({
       elo: eloAfter(p.match, playerId),
       date: p.match.played_on.slice(0, 10),
       opponentName: p.opponentName,
@@ -147,10 +160,6 @@ export function computeProfile(playerId: number, matches: ApiMatch[]): Profile {
     .filter((p) => p.result === 'win')
     .reduce<ProfileMatch | null>((best, p) => (!best || p.oppBefore > best.oppBefore ? p : best), null)
 
-  // Streaks follow play order (date), like the standings' current streak; a draw breaks one.
-  const oldestFirst = [...mine].sort(
-    (x, y) => x.match.played_on.localeCompare(y.match.played_on) || x.match.id - y.match.id,
-  )
   let bestWinStreak = 0
   let run = 0
   for (const p of oldestFirst) {

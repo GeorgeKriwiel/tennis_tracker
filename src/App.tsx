@@ -10,7 +10,7 @@ import { Sheet } from './components/Sheet'
 import { Standings } from './components/Standings'
 import { api, type ApiMatch, type ApiPlayer, type MatchPayload } from './lib/api'
 import { PARKS } from './data/courts'
-import { computeStandings } from './lib/records'
+import { computeStandings, roundElo } from './lib/records'
 
 const LEAGUE_NAME = 'Tennis Tracker'
 const TOTAL_COURTS = PARKS.reduce((sum, p) => sum + p.courts, 0)
@@ -136,12 +136,12 @@ function App() {
           <h1 className="mt-2 max-w-full truncate text-2xl font-bold">{profile.player.name}</h1>
           <p className="text-sm text-white/70">
             {profileIndex === 0 ? '👑 ' : ''}#{profileIndex + 1} of {standings.length} ·{' '}
-            <span className="font-semibold text-white">{profile.player.elo} ELO</span>
+            <span className="font-semibold text-white">{roundElo(profile.player.elo)} ELO</span>
             {profile.lastDelta !== null && (
-              <span className={profile.lastDelta >= 0 ? 'text-ball' : 'text-red-300'}>
+              <span className={roundElo(profile.lastDelta) >= 0 ? 'text-ball' : 'text-red-300'}>
                 {' '}
-                {profile.lastDelta >= 0 ? '▲' : '▼'}
-                {Math.abs(profile.lastDelta)}
+                {roundElo(profile.lastDelta) >= 0 ? '▲' : '▼'}
+                {Math.abs(roundElo(profile.lastDelta))}
               </span>
             )}
           </p>

@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS players (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
-  elo INT NOT NULL DEFAULT 1200,
+  elo DOUBLE PRECISION NOT NULL DEFAULT 1200,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP
 );
@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS matches (
   score_b INT NOT NULL,
   match_type VARCHAR(10) NOT NULL DEFAULT 'set' CHECK (match_type IN ('set', 'tiebreak')),
   winner_id INT REFERENCES players(id),
-  player_a_elo_after INT NOT NULL,
-  player_b_elo_after INT NOT NULL,
+  player_a_elo_after DOUBLE PRECISION NOT NULL,
+  player_b_elo_after DOUBLE PRECISION NOT NULL,
   park VARCHAR(100),
   notes VARCHAR(500),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -51,6 +51,13 @@ END $$;
 ALTER TABLE matches ALTER COLUMN score_a SET NOT NULL;
 ALTER TABLE matches ALTER COLUMN score_b SET NOT NULL;
 ALTER TABLE matches ALTER COLUMN winner_id DROP NOT NULL;
+
+-- Ratings are stored exact (rounded only for display). Was INT, which rounded every
+-- rating after every match. Existing values stay whole numbers until the next replay
+-- (`npm run replay -- --apply`, or any match edit/delete). Idempotent.
+ALTER TABLE players ALTER COLUMN elo TYPE DOUBLE PRECISION;
+ALTER TABLE matches ALTER COLUMN player_a_elo_after TYPE DOUBLE PRECISION;
+ALTER TABLE matches ALTER COLUMN player_b_elo_after TYPE DOUBLE PRECISION;
 
 -- deleted_at is unused: it belonged to a short-lived soft-delete design (removing a player now deletes their matches). Safe to drop later.
 ALTER TABLE players ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;

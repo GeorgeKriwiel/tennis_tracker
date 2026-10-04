@@ -1,4 +1,4 @@
-import type { Standing } from '../lib/records'
+import { roundElo, type Standing } from '../lib/records'
 
 const STREAK_MIN = 3
 
@@ -48,14 +48,14 @@ export function Standings({
           {lastDelta !== null && (
             <span
               className={`shrink-0 text-sm font-medium ${
-                lastDelta >= 0 ? 'text-green-600' : 'text-red-500'
+                roundElo(lastDelta) >= 0 ? 'text-green-600' : 'text-red-500'
               }`}
             >
-              {Math.abs(lastDelta)} {lastDelta >= 0 ? '▲' : '▼'}
+              {Math.abs(roundElo(lastDelta))} {roundElo(lastDelta) >= 0 ? '▲' : '▼'}
             </span>
           )}
           <span className="w-20 shrink-0 text-right text-neutral-500">
-            {player.elo} ELO
+            {roundElo(player.elo)} ELO
           </span>
           <span aria-hidden className="-ml-1 shrink-0 text-neutral-300 dark:text-neutral-600">
             ›

@@ -1,5 +1,5 @@
 import type { ApiMatch } from '../lib/api'
-import { computeProfile, type Result, type Standing } from '../lib/records'
+import { computeProfile, roundElo, type Result, type Standing } from '../lib/records'
 import { Delta, StackedMatchRow } from './MatchRow'
 import { RatingChart } from './RatingChart'
 
@@ -54,13 +54,13 @@ export function PlayerProfile({
             icon="⬆️"
             label="Highest rating"
             detail={profile.highest.date ?? 'starting rating'}
-            value={profile.highest.elo}
+            value={roundElo(profile.highest.elo)}
           />
           <Highlight
             icon="🏅"
             label="Best win"
             detail={profile.bestWin?.opponentName}
-            value={profile.bestWin?.elo ?? '–'}
+            value={profile.bestWin ? roundElo(profile.bestWin.elo) : '–'}
           />
           <Highlight icon="🔥" label="Best win streak" value={profile.bestWinStreak} />
         </ul>

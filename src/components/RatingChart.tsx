@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Profile } from '../lib/records'
+import { roundElo, type Profile } from '../lib/records'
 
 const W = 340
 const H = 150
@@ -47,7 +47,7 @@ export function RatingChart({ points }: { points: Profile['ratingPoints'] }) {
                 : 'Starting rating'}
           </div>
           <div className="text-lg leading-tight font-semibold text-neutral-900 tabular-nums dark:text-neutral-100">
-            {point.elo} ELO
+            {roundElo(point.elo)} ELO
           </div>
         </div>
         {active === null && (
@@ -58,7 +58,7 @@ export function RatingChart({ points }: { points: Profile['ratingPoints'] }) {
         viewBox={`0 0 ${W} ${H}`}
         className="w-full touch-pan-y select-none"
         role="img"
-        aria-label={`Rating history: from ${points[0].elo} to ${points[points.length - 1].elo} over ${points.length - 1} matches`}
+        aria-label={`Rating history: from ${roundElo(points[0].elo)} to ${roundElo(points[points.length - 1].elo)} over ${points.length - 1} matches`}
         onPointerDown={scrub}
         onPointerMove={scrub}
         onPointerLeave={() => setActive(null)}

@@ -1,4 +1,5 @@
 import type { ApiMatch } from '../lib/api'
+import { roundElo } from '../lib/records'
 
 export interface Side {
   id: number
@@ -142,7 +143,7 @@ function StackedLine({ side, onClick }: { side: Side; onClick?: () => void }) {
         ) : (
           <span className={nameClass}>{side.name}</span>
         )}
-        <span className="shrink-0 text-sm text-neutral-400 tabular-nums">({side.rating})</span>
+        <span className="shrink-0 text-sm text-neutral-400 tabular-nums">({roundElo(side.rating)})</span>
       </div>
       <span className={`text-right text-lg leading-tight tabular-nums ${scoreClass(side.bold)}`}>
         {side.score}
@@ -155,7 +156,8 @@ function scoreClass(bold: boolean) {
   return bold ? 'font-semibold text-neutral-900 dark:text-neutral-100' : 'text-neutral-400'
 }
 
-export function Delta({ value }: { value: number }) {
+export function Delta({ value: exact }: { value: number }) {
+  const value = roundElo(exact)
   return (
     <span className={`font-medium ${value >= 0 ? 'text-green-600' : 'text-red-500'}`}>
       {value >= 0 ? '+' : '−'}
@@ -188,7 +190,7 @@ function Player({
         <span className={nameClass}>{side.name}</span>
       )}
       <div className="text-xs tabular-nums">
-        <span className="text-neutral-400">({side.rating})</span> <Delta value={side.delta} />
+        <span className="text-neutral-400">({roundElo(side.rating)})</span> <Delta value={side.delta} />
       </div>
     </div>
   )

@@ -2,7 +2,7 @@ import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import { pool } from './db'
-import { computeEloUpdate, scoreMatch } from './elo'
+import { scoreMatch } from './elo'
 import { requireAdminPasscode } from './adminAuth'
 import { parseMatchInput, winnerOf } from './matchInput'
 import { replayRatings } from './ratings'
@@ -103,45 +103,49 @@ app.post('/api/matches', async (req, res) => {
   }
   const { playedOn, playerAId, playerBId, gamesA, gamesB, matchType, park, notes } = parsed.value
 
-  const { rows: players } = await pool.query<Player>(
-    'SELECT id, name, elo FROM players WHERE id IN ($1, $2)',
-    [playerAId, playerBId],
-  )
-  const playerA = players.find((p) => p.id === playerAId)
-  const playerB = players.find((p) => p.id === playerBId)
-  if (!playerA || !playerB) {
-    res.status(404).json({ error: 'player not found' })
-    return
-  }
-
-  // Winner, draw and K-scaling all come from scoreMatch; a draw is stored as
-  // winner_id NULL.
-  const { scoreA: result, k } = scoreMatch(gamesA, gamesB, matchType)
-  const winnerId = winnerOf(result, playerA.id, playerB.id)
-
-  const { newRatingA, newRatingB } = computeEloUpdate(playerA.elo, playerB.elo, result, k)
+  // Winner and draw come from scoreMatch; a draw is stored as winner_id NULL.
+  const { scoreA: result } = scoreMatch(gamesA, gamesB, matchType)
 
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
 
+    const { rows: players } = await client.query<Player>(
+      'SELECT id, name, elo FROM players WHERE id IN ($1, $2)',
+      [playerAId, playerBId],
+    )
+    const playerA = players.find((p) => p.id === playerAId)
+    const playerB = players.find((p) => p.id === playerBId)
+    if (!playerA || !playerB) {
+      await client.query('ROLLBACK')
+      res.status(404).json({ error: 'player not found' })
+      return
+    }
+    const winnerId = winnerOf(result, playerA.id, playerB.id)
+
+    // The ELO columns get placeholder values here; replayRatings fills in the real ones.
+    // A match can be backdated before matches already logged, so every rating after it
+    // may change — the whole history is replayed in played order, not just these two.
     const { rows: inserted } = await client.query<{ id: number }>(
       `INSERT INTO matches
         (played_on, player_a_id, player_b_id, score_a, score_b, match_type, winner_id, player_a_elo_after, player_b_elo_after, park, notes)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id`,
-      [playedOn, playerA.id, playerB.id, gamesA, gamesB, matchType, winnerId, newRatingA, newRatingB, park, notes],
+      [playedOn, playerA.id, playerB.id, gamesA, gamesB, matchType, winnerId, playerA.elo, playerB.elo, park, notes],
     )
-    await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingA, playerA.id])
-    await client.query('UPDATE players SET elo = $1 WHERE id = $2', [newRatingB, playerB.id])
+    await replayRatings(client)
+    const { rows: after } = await client.query<{ a: number; b: number }>(
+      'SELECT player_a_elo_after AS a, player_b_elo_after AS b FROM matches WHERE id = $1',
+      [inserted[0].id],
+    )
 
     await client.query('COMMIT')
 
     res.status(201).json({
       id: inserted[0].id,
       playedOn,
-      playerA: { id: playerA.id, name: playerA.name, eloAfter: newRatingA },
-      playerB: { id: playerB.id, name: playerB.name, eloAfter: newRatingB },
+      playerA: { id: playerA.id, name: playerA.name, eloAfter: after[0].a },
+      playerB: { id: playerB.id, name: playerB.name, eloAfter: after[0].b },
       scoreA: gamesA,
       scoreB: gamesB,
       matchType,
@@ -158,8 +162,8 @@ app.post('/api/matches', async (req, res) => {
 })
 
 // Editing a match can change anything about it, and ratings are a running total, so
-// every rating is rebuilt afterwards. The match keeps its place in the rating order
-// (by id) even if its date changes. Passcode-protected like removing a player.
+// every rating is rebuilt afterwards. Changing its date moves it to its new place in the
+// rating order (played order). Passcode-protected like removing a player.
 app.put('/api/matches/:id', requireAdminPasscode, async (req, res) => {
   const id = Number(req.params.id)
   if (!Number.isInteger(id)) {
