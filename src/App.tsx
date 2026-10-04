@@ -6,6 +6,7 @@ import { MatchForm } from './components/MatchForm'
 import { MatchList } from './components/MatchList'
 import { MembersPanel } from './components/MembersPanel'
 import { PlayerProfile } from './components/PlayerProfile'
+import { RatingsHelp } from './components/RatingsHelp'
 import { Sheet } from './components/Sheet'
 import { Standings } from './components/Standings'
 import { api, type ApiMatch, type ApiPlayer, type MatchPayload } from './lib/api'
@@ -16,7 +17,7 @@ const LEAGUE_NAME = 'Tennis Tracker'
 const TOTAL_COURTS = PARKS.reduce((sum, p) => sum + p.courts, 0)
 
 type Tab = 'standings' | 'matches'
-type OpenSheet = 'match' | 'player' | null
+type OpenSheet = 'match' | 'player' | 'ratings' | null
 
 function App() {
   const [players, setPlayers] = useState<ApiPlayer[]>([])
@@ -202,6 +203,12 @@ function App() {
                 >
                   Manage members
                 </button>
+                <button
+                  onClick={() => setSheet('ratings')}
+                  className="mt-2 w-full py-2 text-sm text-neutral-500 underline underline-offset-2"
+                >
+                  How do ratings work?
+                </button>
               </>
             ) : (
               <MatchList matches={matches} onEdit={setEditing} onSelectPlayer={openProfile} />
@@ -238,6 +245,9 @@ function App() {
             onDelete={() => handleDeleteMatch(editing.id)}
           />
         )}
+      </Sheet>
+      <Sheet open={sheet === 'ratings'} title="How ratings work" onClose={() => setSheet(null)}>
+        <RatingsHelp />
       </Sheet>
       <Sheet open={sheet === 'player'} title="Members" onClose={() => setSheet(null)}>
         <MembersPanel
