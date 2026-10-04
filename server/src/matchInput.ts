@@ -71,7 +71,7 @@ export function parseMatchInput(body: unknown): Parsed {
   }
 }
 
-// result is scoreMatch's scoreA: 1 = A won, 0 = B won, 0.5 = draw (stored as NULL).
+// result is matchResult's (elo.ts): 1 = A won, 0 = B won, 0.5 = draw (stored as NULL).
 export function winnerOf(result: 0 | 0.5 | 1, playerAId: number, playerBId: number) {
   return result === 1 ? playerAId : result === 0 ? playerBId : null
 }

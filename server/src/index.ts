@@ -2,7 +2,7 @@ import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
 import { pool } from './db'
-import { scoreMatch } from './elo'
+import { matchResult } from './elo'
 import { requireAdminPasscode } from './adminAuth'
 import { parseMatchInput, winnerOf } from './matchInput'
 import { replayRatings } from './ratings'
@@ -103,8 +103,8 @@ app.post('/api/matches', async (req, res) => {
   }
   const { playedOn, playerAId, playerBId, gamesA, gamesB, matchType, park, notes } = parsed.value
 
-  // Winner and draw come from scoreMatch; a draw is stored as winner_id NULL.
-  const { scoreA: result } = scoreMatch(gamesA, gamesB, matchType)
+  // A draw is stored as winner_id NULL.
+  const result = matchResult(gamesA, gamesB)
 
   const client = await pool.connect()
   try {
@@ -197,7 +197,7 @@ app.put('/api/matches/:id', requireAdminPasscode, async (req, res) => {
       return
     }
 
-    const { scoreA: result } = scoreMatch(gamesA, gamesB, matchType)
+    const result = matchResult(gamesA, gamesB)
     await client.query(
       `UPDATE matches
        SET played_on = $1, player_a_id = $2, player_b_id = $3, score_a = $4, score_b = $5,

@@ -38,7 +38,7 @@ export async function replayRatings(client: PoolClient) {
   for (const m of matches) {
     const a = ratings.get(m.player_a_id) ?? STARTING_ELO
     const b = ratings.get(m.player_b_id) ?? STARTING_ELO
-    const { scoreA, k } = scoreMatch(m.score_a, m.score_b, m.match_type)
+    const { scoreA, k } = scoreMatch(m.score_a, m.score_b, m.match_type, a, b)
     const { newRatingA, newRatingB } = computeEloUpdate(a, b, scoreA, k)
     ratings.set(m.player_a_id, newRatingA)
     ratings.set(m.player_b_id, newRatingB)

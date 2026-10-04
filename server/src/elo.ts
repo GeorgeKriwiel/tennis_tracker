@@ -32,6 +32,18 @@ const STANDARD_MARGIN = 2
 const SET_K_CHANGE_PER_MARGIN_GAME = 0.1
 const TIEBREAK_K_CHANGE_PER_MARGIN_POINT = 0.05
 
+// Favourites win by bigger margins, so on its own the margin multiplier hands them
+// free rating over time (stretching the ladder ~5% beyond true skill in simulation).
+// To keep every pairing break-even on average — so nobody gains by seeking out or
+// avoiding weaker/stronger opponents — K is scaled by c / (gap × 0.001 + c), where
+// gap is the winner's pre-match rating minus the loser's: slightly less when the
+// favourite wins, slightly more for an upset (about ∓2% at a 200-point gap). The
+// form is FiveThirtyEight's margin-autocorrelation fix; their NFL constant (2.2)
+// over-corrected badly here (ratings ~10% *compressed*, short-changing favourites),
+// so c was tuned by simulating sets (6-game, win by 2, 7-6 tiebreak) between players
+// of known skill until the rating spread matched plain Elo. Draws: no correction.
+const FAVOURITE_CORRECTION = 8.8
+
 export type MatchType = 'set' | 'tiebreak'
 
 // scoreA is player A's actual score: 1 = A won, 0.5 = draw, 0 = A lost. The
@@ -61,11 +73,18 @@ export function computeEloUpdate(
 // a 1-1 one, just as a 7-5 win weighs more than a 3-1 one. A win's margin then
 // scales K again (see STANDARD_MARGIN), so a 6-0 moves ratings more than a 6-4,
 // and a 6-4 more than a 7-6 would at the same length. The two multipliers combine,
-// e.g. 6-0 = ×1.0 length × ×1.3 margin = K 39.
+// e.g. 6-0 = ×1.0 length × ×1.3 margin = K 39 between equal ratings. Finally, the
+// favourite correction (FAVOURITE_CORRECTION) needs the pre-match ratings.
+export function matchResult(gamesA: number, gamesB: number): 0 | 0.5 | 1 {
+  return gamesA === gamesB ? 0.5 : gamesA > gamesB ? 1 : 0
+}
+
 export function scoreMatch(
   gamesA: number,
   gamesB: number,
   type: MatchType,
+  ratingA: number,
+  ratingB: number,
 ): { scoreA: 0 | 0.5 | 1; k: number } {
   const topRaw = Math.max(gamesA, gamesB)
   const topGames = type === 'tiebreak' ? topRaw / POINTS_PER_GAME : topRaw
@@ -80,6 +99,10 @@ export function scoreMatch(
   const marginMultiplier =
     margin === 0 ? 1 : Math.min(MAX_MULTIPLIER, 1 + perMargin * (margin - STANDARD_MARGIN))
 
-  const scoreA = gamesA === gamesB ? 0.5 : gamesA > gamesB ? 1 : 0
-  return { scoreA, k: BASE_K * lengthMultiplier * marginMultiplier }
+  const scoreA = matchResult(gamesA, gamesB)
+  const winnerGap = scoreA === 1 ? ratingA - ratingB : ratingB - ratingA
+  const favouriteCorrection =
+    scoreA === 0.5 ? 1 : FAVOURITE_CORRECTION / (winnerGap * 0.001 + FAVOURITE_CORRECTION)
+
+  return { scoreA, k: BASE_K * lengthMultiplier * marginMultiplier * favouriteCorrection }
 }
